@@ -1,3 +1,8 @@
+<!--
+ * @Date: 2022-03-03 16:18:45
+ * @LastEditors: yuhhong
+ * @LastEditTime: 2022-05-17 14:02:18
+-->
 # Mol3DNet: Prediction of Tandem Mass Spectra from 3D Conformers
 
 
@@ -66,6 +71,12 @@ Pretrained models are [Mol3DNet_Release](https://drive.google.com/drive/folders/
 ```bash
 python inference.py --post_threshold 0.01 \
 	--model_path <path to pretrained model> \
+	--test_data_path input.csv \
+	--result_path output.csv
+
+# e.g.
+python inference.py --post_threshold 0.01 \
+	--model_path ./release/pretrained_hcd.pth \
 	--test_data_path input.csv \
 	--result_path output.csv
 ```

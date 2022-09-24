@@ -1,7 +1,7 @@
 '''
 Date: 2021-07-08 18:37:32
 LastEditors: yuhhong
-LastEditTime: 2022-03-03 11:50:59
+LastEditTime: 2022-05-17 14:03:54
 '''
 
 import os
@@ -36,8 +36,19 @@ def eval(model, device, loader, batch_size, num_atoms, thr):
     y_pred = []
     ids = []
     smiles = []
+    adducts = []
+    instruments = []
+    collision_energies = []
     for _, batch in enumerate(tqdm(loader, desc="Iteration")):
         id, s, x_and_adj, env = batch
+
+        # save parameters for return
+        adducts += list(env[:, 0])
+        instruments += list(env[:, 1])
+        collision_energies += list(env[:, 2])
+        ids += list(id)
+        smiles += list(s)
+
         x, adj = x_and_adj
         x = x.to(device).to(torch.float32)
         x = x.permute(0, 2, 1)
@@ -60,11 +71,9 @@ def eval(model, device, loader, batch_size, num_atoms, thr):
             pred = pred.detach().cpu().apply_(lambda x: x if x > thr else 0).to(device)
 
         y_pred.append(pred.detach().cpu())
-        ids = ids + list(id)
-        smiles = smiles + list(s)
 
     y_pred = torch.cat(y_pred, dim = 0)
-    return ids, smiles, _, y_pred, _
+    return ids, smiles, _, y_pred, _, adducts, instruments, collision_energies
 
 def batch_filter(supp, num_atoms=200, out_dim=2000, data_type='sdf'): 
     if data_type == 'mgf':
@@ -172,18 +181,24 @@ if __name__ == "__main__":
     np.random.seed(42)
     torch.manual_seed(42)
     torch.cuda.manual_seed(42)
+    
+    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
 
     valid_loader = load_data(data_path=args.test_data_path, num_workers=args.num_workers, batch_size=args.batch_size, data_augmentation=False, shuffle=False)
     
-    model = torch.load(args.model_path)
+    model = torch.load(args.model_path, map_location=device)
     num_params = sum(p.numel() for p in model.parameters())
     print(f'{str(model)} #Params: {num_params}')
-
-    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
     model.to(device)
 
     print('Evaluating...')
-    ids, smiles, _, y_pred, _ = eval(model, device, valid_loader, args.batch_size, args.num_atoms, thr=args.post_threshold)
+    ids, smiles, _, y_pred, _, adducts, instruments, collision_energies = eval(model, device, valid_loader, args.batch_size, args.num_atoms, thr=args.post_threshold)
+
+    # convert integer to string
+    DECODE_ADD = {0: 'M+H', 1: 'M-H', 2: 'M-H2O+H', 3: 'M+Na', 4: 'M+H-NH3', 5: 'M-2H2O+H', 6: 'M-H-H2O', 7: 'M+NH4', 8: 'M+H-CH4O', 9: 'M+2Na-H', 10: 'M+H-C2H6O', 11: 'M+Cl', 12: 'M+OH', 13: 'M+H+2i', 14: '2M+H', 15: '2M-H', 16: 'M-H-CO2', 17: 'M+2H', 18: 'M-H+2i', 19: 'M+H-CH2O2', 20: 'M+H-C4H8', 21: 'M+H-C2H4O2', 22: 'M+H-C2H4', 23: 'M+CHO2', 24: 'M-H-CH3', 25: 'M+H-C2H2O', 26: 'M+H-C3H6', 27: 'M+H-CH3', 28: 'M+H-3H2O', 29: 'M+H-HF', 30: 'M-2H'}
+    DECODE_INS = {0: 'HCD', 1: 'QqQ', 2: 'QTOF', 3: 'FT', 4: 'N/A'}
+    adducts = [DECODE_ADD[add] for add in adducts]
+    instruments = [DECODE_INS[ins] for ins in instruments]
 
     pred_list = [spec_convert(spec, args.resolution) for spec in y_pred.tolist()]
     pred_mz = [pred['m/z'] for pred in pred_list]
@@ -192,7 +207,11 @@ if __name__ == "__main__":
     result_dir = "".join(args.result_path.split('/')[:-1])
     if result_dir != '':
         os.makedirs(result_dir, exist_ok = True)
-    df = pd.DataFrame({'ID': ids, 'SMILES': smiles, 'Pred_M/Z': pred_mz, 'Pred_Intensity': pred_intensity})
+
+    # output .mgf file
+    df = pd.DataFrame({'ID': ids, 'SMILES': smiles, 'Precursor_Type': adducts, 'Instrument': instruments, 
+                        'Collision_Energy': collision_energies, 'Pred_M/Z': pred_mz, 'Pred_Intensity': pred_intensity})
     print(df.head())
-    print('Save {} test results to {}'.format(len(df), args.result_path))
+    exit()
+    print('Save the test results to {}'.format(args.result_path))
     df.to_csv(args.result_path, index=None)
