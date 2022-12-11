@@ -1,7 +1,7 @@
 '''
 Date: 2021-07-08 18:37:32
 LastEditors: yuhhong
-LastEditTime: 2022-05-17 14:03:54
+LastEditTime: 2022-12-09 23:41:20
 '''
 
 import os
@@ -13,25 +13,16 @@ pd.set_option('display.max_columns', None)
 
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 
-from rdkit import Chem
 # suppress rdkit warning
 from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
 
-from dataset import CSVDataset
+from utils import load_data, generate_3d_comformers_csv, generate_2d_comformers_csv, spec_convert
 
-def spec_convert(spec, resolution):
-    x = []
-    y = []
-    for i, j in enumerate(spec):
-        if j != 0:
-            x.append(i*resolution)
-            y.append(j)
-    return {'m/z': np.array(x), 'intensity': np.array(y)}
 
-def eval(model, device, loader, batch_size, num_atoms, thr):
+
+def eval(model, device, loader, batch_size, num_points): 
     model.eval()
     y_pred = []
     ids = []
@@ -39,21 +30,18 @@ def eval(model, device, loader, batch_size, num_atoms, thr):
     adducts = []
     instruments = []
     collision_energies = []
-    for _, batch in enumerate(tqdm(loader, desc="Iteration")):
-        id, s, x_and_adj, env = batch
-
+    for _, batch in enumerate(tqdm(loader, desc="Iteration")): 
+        id, s, x, mask, env = batch
+        x = x.to(device).to(torch.float32)
+        x = x.permute(0, 2, 1)
+        
         # save parameters for return
-        adducts += list(env[:, 0])
-        instruments += list(env[:, 1])
-        collision_energies += list(env[:, 2])
+        adducts += env[:, 0].detach().cpu().tolist()
+        instruments += env[:, 1].detach().cpu().tolist()
+        collision_energies += env[:, 2].detach().cpu().tolist()
         ids += list(id)
         smiles += list(s)
 
-        x, adj = x_and_adj
-        x = x.to(device).to(torch.float32)
-        x = x.permute(0, 2, 1)
-        adj = adj.to(device).to(torch.float32)
-        
         # encode adduct and instrument by one hot
         add = env[:, 0].to(device).to(torch.int64)
         add_oh = F.one_hot(add, num_classes=args.num_add)
@@ -62,91 +50,30 @@ def eval(model, device, loader, batch_size, num_atoms, thr):
         ce = env[:, 2].to(device).to(torch.float32).unsqueeze(1)
         env = torch.cat((add_oh, ins_oh, ce), 1)
 
-        idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1)*num_atoms
-
+        idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
+        
         with torch.no_grad():
-            pred = model(x, adj, env, idx_base) 
+            pred = model(x, env, idx_base) 
             pred = pred / torch.max(pred) # normalize the output
-            # post process
-            pred = pred.detach().cpu().apply_(lambda x: x if x > thr else 0).to(device)
-
+        
+        # recover sqrt spectra to original spectra
+        pred = torch.pow(pred, 2)
+        # post process
+        pred = pred.detach().cpu().apply_(lambda x: x if x > 0.001 else 0).to(device)
         y_pred.append(pred.detach().cpu())
 
     y_pred = torch.cat(y_pred, dim = 0)
     return ids, smiles, _, y_pred, _, adducts, instruments, collision_energies
 
-def batch_filter(supp, num_atoms=200, out_dim=2000, data_type='sdf'): 
-    if data_type == 'mgf':
-        for _, item in enumerate(supp):
-            smiles = item.get('params').get('smiles')
-            if item.get('m/z array').max() > out_dim: 
-                continue
-            mol = Chem.MolFromSmiles(smiles)
-            if len(mol.GetAtoms()) > num_atoms or len(mol.GetAtoms()) == 0: 
-                continue
-            if len(item['m/z array']) == 0 or len(item['m/z array']) == 1: # j0sie: tmp
-                continue
-            yield item
-
-    elif data_type == 'sdf': # J0sie: need check 
-        for _, item in enumerate(supp):
-            mol = item
-            if mol is None:
-                continue
-            if not mol.HasProp("MASS SPECTRAL PEAKS"):
-                continue
-            if mol.GetProp("SPECTRUM TYPE") != "MS2":
-                continue
-            yield item
-
-    elif data_type == 'csv':
-        ATOM_LIST = ['C', 'H', 'O', 'N', 'F', 'S', 'Cl', 'P', 'B', 'Br', 'I']
-        ADD_LIST = ['M+H', 'M-H', 'M+H-H2O', 'M+Na', 'M+H-NH3', 'M+H-2H2O', 'M-H-H2O', 'M+NH4', 'M+H-CH4O', 'M+2Na-H', 
-                    'M+H-C2H6O', 'M+Cl', 'M+OH', 'M+H+2i', '2M+H', '2M-H', 'M-H-CO2', 'M+2H', 'M-H+2i', 'M+H-CH2O2', 'M+H-C4H8', 
-                    'M+H-C2H4O2', 'M+H-C2H4', 'M+CHO2', 'M-H-CH3', 'M+H-H2O+2i', 'M+H-C2H2O', 'M+H-C3H6', 'M+H-CH3', 'M+H-3H2O', 
-                    'M+H-HF', 'M-2H', 'M-H2O+H', 'M-2H2O+H']
-        INST_LIST = ['HCD', 'QqQ', 'QTOF', 'FT', 'N/A']
-        for _, row in supp.iterrows(): 
-            mol = Chem.MolFromSmiles(row['SMILES'])
-            # check atom number
-            if len(mol.GetAtoms()) > num_atoms:
-                print('{}: atom number is larger than {}'.format(row['ID'], num_atoms))
-                continue
-            # check atom type
-            for atom in mol.GetAtoms():
-                if atom.GetSymbol() not in ATOM_LIST:
-                    print('{}: {} is not in the Atom List.'.format(row['ID'], atom.GetSymbol()))
-                    continue
-            # check precursor type
-            if row['Precursor_Type'] not in ADD_LIST:
-                print('{}: {} is not in the Precusor Type List.'.format(row['ID'], row['Precursor_Type']))
-                continue
-            # check source instrument
-            if row['Source_Instrument'] not in INST_LIST: 
-                print('{}: {} is not in the Intrument List.'.format(row['ID'], row['Source_Instrument']))
-                continue
-            yield row.to_dict()
-        
-
-def load_data(data_path, num_workers, batch_size, data_augmentation, shuffle): 
-    supp = pd.read_csv(data_path)
-    dataset = CSVDataset([item for item in batch_filter(supp, args.num_atoms, args.out_dim, data_type='csv')], num_points=args.num_atoms, num_ms=args.out_dim, resolution=args.resolution, data_augmentation=data_augmentation)
-    
-    print('Load {} data from {}.'.format(len(dataset), data_path))
-    data_loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=shuffle, 
-        num_workers=num_workers,
-        drop_last=True)
-    return data_loader 
 
 
 if __name__ == "__main__":
     # Training settings
     parser = argparse.ArgumentParser(description='Mass Spectrum Prediction')
+    parser.add_argument('--mol_type', type=str, default='3d', choices=['2d', '3d'], 
+                        help='2D or 3D molecules?')
     parser.add_argument('--test_data_path', type=str, default = '',
-                        help='path to test data')
+                        help='path to test data (.mgf)')
     parser.add_argument('--model_path', type=str, default='', 
                         help='Model path')
     parser.add_argument('--result_path', type=str, default='', 
@@ -170,8 +97,6 @@ if __name__ == "__main__":
                         help='output dimensionality (default: 1500)')
     parser.add_argument('--resolution', type=float, default=0.2, 
                         help='resolution of the spectra (default: 0.2)')
-    parser.add_argument('--post_threshold', type=float, default=0.01, 
-                        help='the threshold of postprocess (default: 0.01)')
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
@@ -184,18 +109,38 @@ if __name__ == "__main__":
     
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
 
-    valid_loader = load_data(data_path=args.test_data_path, num_workers=args.num_workers, batch_size=args.batch_size, data_augmentation=False, shuffle=False)
+    if args.mol_type == '3d': 
+        # generate 3d comformers
+        test_mol_path = args.test_data_path[:-4] + '_3d.sdf.gz'
+        if not os.path.exists(test_mol_path): 
+            print("Generate 3D comformers for test data...")
+            test_mol_path, write_cnt = generate_3d_comformers_csv(args.test_data_path, test_mol_path) 
+            print("Write {} 3D molecules to {}\n".format(write_cnt, test_mol_path))
+    else:
+        # generate 2d comformers
+        test_mol_path = args.test_data_path[:-4] + '_2d.sdf.gz'
+        if not os.path.exists(test_mol_path): 
+            print("Generate 2D comformers for test data...")
+            test_mol_path, write_cnt = generate_2d_comformers_csv(args.test_data_path, test_mol_path) 
+            print("Write {} 2D molecules to {}\n".format(write_cnt, test_mol_path))
+            
+    valid_loader = load_data(data_path=args.test_data_path, mol_path=test_mol_path, 
+                            num_atoms=args.num_atoms, out_dim=args.out_dim, resolution=args.resolution, dataset='merge_infer', 
+                            num_workers=args.num_workers, batch_size=args.batch_size, data_augmentation=False, shuffle=False)
+
+    model = torch.jit.load(args.model_path, map_location=device)
     
-    model = torch.load(args.model_path, map_location=device)
+    model.device = device
     num_params = sum(p.numel() for p in model.parameters())
-    print(f'{str(model)} #Params: {num_params}')
+    print(f'#Params: {num_params}')
     model.to(device)
 
     print('Evaluating...')
-    ids, smiles, _, y_pred, _, adducts, instruments, collision_energies = eval(model, device, valid_loader, args.batch_size, args.num_atoms, thr=args.post_threshold)
+    ids, smiles, _, y_pred, _, adducts, instruments, collision_energies = eval(model, device, valid_loader, args.batch_size, args.num_atoms)
 
     # convert integer to string
     DECODE_ADD = {0: 'M+H', 1: 'M-H', 2: 'M-H2O+H', 3: 'M+Na', 4: 'M+H-NH3', 5: 'M-2H2O+H', 6: 'M-H-H2O', 7: 'M+NH4', 8: 'M+H-CH4O', 9: 'M+2Na-H', 10: 'M+H-C2H6O', 11: 'M+Cl', 12: 'M+OH', 13: 'M+H+2i', 14: '2M+H', 15: '2M-H', 16: 'M-H-CO2', 17: 'M+2H', 18: 'M-H+2i', 19: 'M+H-CH2O2', 20: 'M+H-C4H8', 21: 'M+H-C2H4O2', 22: 'M+H-C2H4', 23: 'M+CHO2', 24: 'M-H-CH3', 25: 'M+H-C2H2O', 26: 'M+H-C3H6', 27: 'M+H-CH3', 28: 'M+H-3H2O', 29: 'M+H-HF', 30: 'M-2H'}
+
     DECODE_INS = {0: 'HCD', 1: 'QqQ', 2: 'QTOF', 3: 'FT', 4: 'N/A'}
     adducts = [DECODE_ADD[add] for add in adducts]
     instruments = [DECODE_INS[ins] for ins in instruments]
@@ -211,7 +156,6 @@ if __name__ == "__main__":
     # output .mgf file
     df = pd.DataFrame({'ID': ids, 'SMILES': smiles, 'Precursor_Type': adducts, 'Instrument': instruments, 
                         'Collision_Energy': collision_energies, 'Pred_M/Z': pred_mz, 'Pred_Intensity': pred_intensity})
-    print(df.head())
-    exit()
+
     print('Save the test results to {}'.format(args.result_path))
     df.to_csv(args.result_path, index=None)

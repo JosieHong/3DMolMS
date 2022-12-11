@@ -130,4 +130,5 @@ dmypy.json
 
 
 release/
-data/*.mgf
+data/
+update_later/
