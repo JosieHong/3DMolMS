@@ -24,7 +24,9 @@ def get_atom_symbols(smiles):
 
 def remove_for_rare_atom(smiles, keep_atoms):
     mol = Chem.MolFromSmiles(smiles)
-
+    if mol == None:
+        return False
+        
     for i in range(mol.GetNumAtoms()):
         a = mol.GetAtomWithIdx(i).GetSymbol()
         if a not in keep_atoms:
