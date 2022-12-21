@@ -3,9 +3,9 @@
  * @LastEditors: yuhhong
  * @LastEditTime: 2022-12-11 01:00:20
 -->
-# DyGMNet_MS: Prediction of Tandem Mass Spectra from 3D Conformers
+# DyMGNet_MS: Prediction of Tandem Mass Spectra from 3D Conformers
 
-This is the implementation of using DyGMNet (Dynamic Gram Matrix Network) to predict tandem mass spectra from molecular 3D conformers. 
+This is the implementation of using DyGMNet (Dynamic Molecular Graph Network) to predict tandem mass spectra from molecular 3D conformers. 
 
 
 
@@ -72,11 +72,11 @@ The following item will be removed in the preprocessing:
 
 ## Inference Using the Released Models
 
-Released PyTorch JIT models are [DyGMNet_Release](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=sharing). 
+Released PyTorch JIT models are [DyMGNet_Release](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=sharing). 
 
-- `dygmnet_posi.pt` is trained on `[M+H]` ion mode MS/MS from Agilent. 
+- `dymgnet_posi.pt` is trained on `[M+H]` ion mode MS/MS from Agilent. 
 
-- `dygmnet_nega.pt` is trained on `[M-H]` ion mode MS/MS from Agilent.
+- `dymgnet_nega.pt` is trained on `[M-H]` ion mode MS/MS from Agilent.
 
 ```bash
 python inference.py --model_path <path to pretrained model> \
@@ -93,6 +93,16 @@ python inference.py --mol_type 3d --batch_size 2 \
   --model_path ./release/dygmnet_nega.pt \
 	--test_data_path ./example/pre_input_nega.csv \
 	--result_path ./example/output_nega.csv
+```
+
+The following script can be used to convert the output csv file into mgf file: 
+
+```bash
+python csv2mgf.py --csv_file <path to output csv file> --mgf_file <path to output mgf file>
+
+# e.g.
+python csv2mgf.py --csv_file ./example/output_posi.csv --mgf_file ./example/output_posi.mgf
+python csv2mgf.py --csv_file ./example/output_nega.csv --mgf_file ./example/output_nega.mgf
 ```
 
 

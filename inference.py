@@ -74,6 +74,8 @@ if __name__ == "__main__":
                         help='2D or 3D molecules?')
     parser.add_argument('--test_data_path', type=str, default = '',
                         help='path to test data (.mgf)')
+    parser.add_argument('--test_mol_path', type=str, default = '',
+                        help='path to test data (.sdf)')
     parser.add_argument('--model_path', type=str, default='', 
                         help='Model path')
     parser.add_argument('--result_path', type=str, default='', 
@@ -109,20 +111,24 @@ if __name__ == "__main__":
     
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
 
-    if args.mol_type == '3d': 
-        # generate 3d comformers
-        test_mol_path = args.test_data_path[:-4] + '_3d.sdf.gz'
-        if not os.path.exists(test_mol_path): 
-            print("Generate 3D comformers for test data...")
-            test_mol_path, write_cnt = generate_3d_comformers_csv(args.test_data_path, test_mol_path) 
-            print("Write {} 3D molecules to {}\n".format(write_cnt, test_mol_path))
+    if args.test_mol_path == '':
+        if args.mol_type == '3d': 
+            # generate 3d comformers
+            test_mol_path = args.test_data_path[:-4] + '_3d.sdf.gz'
+            if not os.path.exists(test_mol_path): 
+                print("Generate 3D comformers for test data...")
+                test_mol_path, write_cnt = generate_3d_comformers_csv(args.test_data_path, test_mol_path) 
+                print("Write {} 3D molecules to {}\n".format(write_cnt, test_mol_path))
+        else:
+            # generate 2d comformers
+            test_mol_path = args.test_data_path[:-4] + '_2d.sdf.gz'
+            if not os.path.exists(test_mol_path): 
+                print("Generate 2D comformers for test data...")
+                test_mol_path, write_cnt = generate_2d_comformers_csv(args.test_data_path, test_mol_path) 
+                print("Write {} 2D molecules to {}\n".format(write_cnt, test_mol_path))
     else:
-        # generate 2d comformers
-        test_mol_path = args.test_data_path[:-4] + '_2d.sdf.gz'
-        if not os.path.exists(test_mol_path): 
-            print("Generate 2D comformers for test data...")
-            test_mol_path, write_cnt = generate_2d_comformers_csv(args.test_data_path, test_mol_path) 
-            print("Write {} 2D molecules to {}\n".format(write_cnt, test_mol_path))
+        test_mol_path = args.test_mol_path
+        assert os.path.exists(test_mol_path)
             
     valid_loader = load_data(data_path=args.test_data_path, mol_path=test_mol_path, 
                             num_atoms=args.num_atoms, out_dim=args.out_dim, resolution=args.resolution, dataset='merge_infer', 
@@ -140,7 +146,6 @@ if __name__ == "__main__":
 
     # convert integer to string
     DECODE_ADD = {0: 'M+H', 1: 'M-H', 2: 'M-H2O+H', 3: 'M+Na', 4: 'M+H-NH3', 5: 'M-2H2O+H', 6: 'M-H-H2O', 7: 'M+NH4', 8: 'M+H-CH4O', 9: 'M+2Na-H', 10: 'M+H-C2H6O', 11: 'M+Cl', 12: 'M+OH', 13: 'M+H+2i', 14: '2M+H', 15: '2M-H', 16: 'M-H-CO2', 17: 'M+2H', 18: 'M-H+2i', 19: 'M+H-CH2O2', 20: 'M+H-C4H8', 21: 'M+H-C2H4O2', 22: 'M+H-C2H4', 23: 'M+CHO2', 24: 'M-H-CH3', 25: 'M+H-C2H2O', 26: 'M+H-C3H6', 27: 'M+H-CH3', 28: 'M+H-3H2O', 29: 'M+H-HF', 30: 'M-2H'}
-
     DECODE_INS = {0: 'HCD', 1: 'QqQ', 2: 'QTOF', 3: 'FT', 4: 'N/A'}
     adducts = [DECODE_ADD[add] for add in adducts]
     instruments = [DECODE_INS[ins] for ins in instruments]
@@ -153,7 +158,7 @@ if __name__ == "__main__":
     if result_dir != '':
         os.makedirs(result_dir, exist_ok = True)
 
-    # output .mgf file
+    # output .csv file
     df = pd.DataFrame({'ID': ids, 'SMILES': smiles, 'Precursor_Type': adducts, 'Instrument': instruments, 
                         'Collision_Energy': collision_energies, 'Pred_M/Z': pred_mz, 'Pred_Intensity': pred_intensity})
 

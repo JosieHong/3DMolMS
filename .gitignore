@@ -129,6 +129,11 @@ dmypy.json
 .pyre/
 
 
-release/
+
 data/
+example/*sdf.gz
+example/output*
+example/pre*
+release/
 update_later/
+hmdb_pred.sh
