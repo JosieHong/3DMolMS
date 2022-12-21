@@ -22,7 +22,7 @@ conda activate <env-name>
 # https://pytorch.org/get-started/previous-versions/
 conda install pytorch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 cudatoolkit=11.0 -c pytorch
 
-pip install lxml tqdm pandas
+pip install lxml tqdm pandas pyteomics
 ```
 
 
