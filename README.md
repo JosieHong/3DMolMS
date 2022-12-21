@@ -85,12 +85,12 @@ python inference.py --model_path <path to pretrained model> \
 
 # e.g.
 python inference.py --mol_type 3d --batch_size 2 \
-  --model_path ./release/dygmnet_posi.pt \
+  --model_path ./release/dymgnet_posi.pt \
 	--test_data_path ./example/pre_input_posi.csv \
 	--result_path ./example/output_posi.csv
 
 python inference.py --mol_type 3d --batch_size 2 \
-  --model_path ./release/dygmnet_nega.pt \
+  --model_path ./release/dymgnet_nega.pt \
 	--test_data_path ./example/pre_input_nega.csv \
 	--result_path ./example/output_nega.csv
 ```
