@@ -87,4 +87,14 @@ class MSDecoder(nn.Module):
         # x = self.fc(x)
         # return F.glu(torch.cat((x, x), dim=1))
         return self.fc(x)
-    
+
+
+
+class ShiftedSoftPlus(nn.Softplus):
+    def __init__(self, beta=1, origin=0.5, threshold=20):
+        super(ShiftedSoftPlus, self).__init__(beta, threshold)
+        self.origin = origin
+        self.sp0 = F.softplus(torch.zeros(1) + self.origin, self.beta, self.threshold).item()
+
+    def forward(self, input):
+        return F.softplus(input + self.origin, self.beta, self.threshold) - self.sp0

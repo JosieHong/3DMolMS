@@ -17,6 +17,7 @@ from pyteomics import mgf
 from models.pointnet import PointNet_MS
 from models.dgcnn import DGCNN_MS
 from models.molnet import MolNet_MS
+from models.schnet import SchNet_MS
 from metrics import get_metrics
 from utils import load_data, generate_3d_comformers_csv, generate_2d_comformers_csv, spec_convert
 
@@ -90,8 +91,8 @@ def inference(model, device, loader, batch_size, num_atoms):
 if __name__ == "__main__":
     # Training settings
     parser = argparse.ArgumentParser(description='Mass Spectrum Prediction')
-    parser.add_argument('--model', type=str, default='molnet', choices=['pointnet', 'dgcnn', 'molnet'],
-                        help='Model to use, [pointnet, dgcnn, molnet]')
+    parser.add_argument('--model', type=str, default='molnet', choices=['pointnet', 'dgcnn', 'molnet', 'schnet'],
+                        help='Model to use, [pointnet, dgcnn, molnet, schnet]')
     parser.add_argument('--dataset', type=str, default='merge', choices=['merge'],
                         help='Dataset to use, only [merge] has been supported here')
     parser.add_argument('--ion_mode', type=str, default='P', choices=['P', 'N', 'ALL'], 
@@ -168,6 +169,8 @@ if __name__ == "__main__":
         model = DGCNN_MS(args)
     elif args.model == 'molnet': 
         model = MolNet_MS(args)
+    elif args.model == 'schnet':
+        model = SchNet_MS(args)
     num_params = sum(p.numel() for p in model.parameters())
     # print(f'{str(model)} #Params: {num_params}')
     print(f'#Params: {num_params}')

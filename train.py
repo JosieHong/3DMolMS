@@ -18,6 +18,7 @@ from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR, MultiStepLR, Red
 from models.pointnet import PointNet_MS
 from models.dgcnn import DGCNN_MS
 from models.molnet import MolNet_MS
+from models.schnet import SchNet_MS
 from utils import load_data, generate_3d_comformers, generate_2d_comformers, get_lr, reg_criterion
 
 
@@ -110,8 +111,8 @@ def eval(model, device, loader, batch_size, num_points):
 if __name__ == "__main__":
     # Training settings
     parser = argparse.ArgumentParser(description='Mass Spectrum Prediction (Train)')
-    parser.add_argument('--model', type=str, default='molnet', choices=['pointnet', 'dgcnn', 'molnet'],
-                        help='Model to use, [pointnet, dgcnn, molnet]')
+    parser.add_argument('--model', type=str, default='molnet', choices=['pointnet', 'dgcnn', 'molnet', 'schnet'],
+                        help='Model to use, [pointnet, dgcnn, molnet, schnet]')
     parser.add_argument('--dataset', type=str, default='gnps', choices=['nist', 'gnps', 'massbank', 'merge', 'hmdb', 'agilent'], 
                         help='Dataset to use, [nist, gnps, massbank, merge, hmdb, agilent]')
     parser.add_argument('--ion_mode', type=str, default='P', choices=['P', 'N', 'ALL'], 
@@ -220,6 +221,8 @@ if __name__ == "__main__":
         model = DGCNN_MS(args)
     elif args.model == 'molnet':
         model = MolNet_MS(args)
+    elif args.model == 'schnet':
+        model = SchNet_MS(args)
     num_params = sum(p.numel() for p in model.parameters())
     # print(f'{str(model)} #Params: {num_params}')
     print(f'#Params: {num_params}')
