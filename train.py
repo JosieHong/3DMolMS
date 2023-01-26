@@ -211,10 +211,7 @@ if __name__ == "__main__":
     valid_loader = load_data(data_path=args.test_data_path, mol_path=test_mol_path, 
                             num_atoms=args.num_atoms, out_dim=args.out_dim, resolution=args.resolution, ion_mode=args.ion_mode, dataset=args.dataset, 
                             num_workers=args.num_workers, batch_size=args.batch_size, data_augmentation=False, shuffle=False)
-    
-    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
-    print(f'Device: {device}')
-    
+
     if args.model == 'pointnet':
         model = PointNet_MS(args)
     elif args.model == 'dgcnn':
@@ -226,6 +223,8 @@ if __name__ == "__main__":
     num_params = sum(p.numel() for p in model.parameters())
     # print(f'{str(model)} #Params: {num_params}')
     print(f'#Params: {num_params}')
+    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() and args.cuda else torch.device("cpu")
+    print(f'Device: {device}')
     model.to(device)
 
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)

@@ -76,7 +76,7 @@ Released pretrained models are [3DMolMS_Release](https://drive.google.com/drive/
 - `molnet_agilent_neg.pt` is trained on negative ion mode Agilent QTOF spectra from Agilent DPCL and NIST20. 
 
 ```bash
-python inference.py --model molnet --dataset merge --num_atoms 300 --resolution 0.2 \
+python pred.py --model molnet --dataset merge --num_atoms 300 --resolution 0.2 \
   --ion_mode <P/N> \
 	--test_data_path <path to input csv file> \
   --resume_path <path to pretrained model> \
