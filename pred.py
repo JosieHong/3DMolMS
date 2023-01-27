@@ -109,7 +109,7 @@ if __name__ == "__main__":
     parser.add_argument('--result_path', type=str, required=True, 
                         help='Output the resutls path')
 
-    parser.add_argument('--batch_size', type=int, default=32, 
+    parser.add_argument('--batch_size', type=int, default=1, 
                         help='Size of batch)')
     parser.add_argument('--num_workers', type=int, default=0,
                         help='number of workers (default: 0)')
@@ -145,14 +145,20 @@ if __name__ == "__main__":
 
     if args.mol_type == '3d': 
         # generate 3d comformers
-        test_mol_path = args.test_data_path[:-4] + '_3d.sdf.gz'
+        if args.test_mol_path == '':
+            test_mol_path = args.test_data_path[:-4] + '_3d.sdf.gz'
+        else:
+            test_mol_path = args.test_mol_path
         if not os.path.exists(test_mol_path): 
             print("Generate 3D comformers for test data...")
             test_mol_path, write_cnt = generate_3d_comformers_csv(args.test_data_path, test_mol_path) 
             print("Write {} 3D molecules to {}\n".format(write_cnt, test_mol_path))
     else:
         # generate 2d comformers
-        test_mol_path = args.test_data_path[:-4] + '_2d.sdf.gz'
+        if args.test_mol_path == '':
+            test_mol_path = args.test_data_path[:-4] + '_2d.sdf.gz'
+        else:
+            test_mol_path = args.test_mol_path
         if not os.path.exists(test_mol_path): 
             print("Generate 2D comformers for test data...")
             test_mol_path, write_cnt = generate_2d_comformers_csv(args.test_data_path, test_mol_path) 

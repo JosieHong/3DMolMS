@@ -45,8 +45,7 @@ Please use the following script to preprocess:
 python preprocess.py --input <path to input csv file> --output <path to output csv file>
 
 # e.g.
-python preprocess.py --input ./example/input_posi.csv --output ./example/pre_input_posi.csv 
-python preprocess.py --input ./example/input_nega.csv --output ./example/pre_input_nega.csv 
+python preprocess.py --input ./example/input.csv --output ./example/pre_input.csv 
 ```
 
 All the items are case sensitive. The unit of `Collision_Energy` is `eV`. If the collision energy is unknow, please set it 0. 
@@ -58,7 +57,7 @@ The following item will be removed in the preprocessing:
 - Precursor type is not in: `['M+H', 'M-H']`; 
 
   ```bash
-  # Some other precursor types are also supported, but they may not get high-accurat, 
+  # Some other precursor types are also supported, but they may not get high-accurate, 
   # because we don't have much training data for these types. 
   ['M+H', 'M-H', 'M+Na', 'M+H-H2O', 'M+2H']
   ```
@@ -77,20 +76,25 @@ Released pretrained models are [3DMolMS_Release](https://drive.google.com/drive/
 
 ```bash
 python pred.py --model molnet --dataset merge --num_atoms 300 --resolution 0.2 \
-  --ion_mode <P/N> \
+	--ion_mode <P/N> \
 	--test_data_path <path to input csv file> \
-  --resume_path <path to pretrained model> \
+	--resume_path <path to pretrained model> \
 	--result_path <path to output csv/mgf file>
+# Please note that the batch size is 1 in default settings. It can be changed to other numbers by `--batch_size <integer>`. 
+# If it is changed to other numbers, the model could infer faster but some data will be dropped if the dataset number can not 
+# be evenly divisible by the batch size. 
+
+# If you would like to use certain 3D conformers, you could use the setting `--test_mol_path <path to test molecular comformers data (.sdf.gz)>`. 
 
 # e.g. 
 python pred.py --model molnet --dataset merge --num_atoms 300 --resolution 0.2 --ion_mode P \
-	--test_data_path ./example/input.csv \
+	--test_data_path ./example/pre_input.csv \
 	--resume_path ./release/molnet_agilent_pos.pt \
 	--result_path ./example/output_pos.csv
-python pred.py --model molnet --dataset merge --num_atoms 300 --resolution 0.2 --ion_mode P \
-	--test_data_path ./example/input.csv \
-	--resume_path ./release/molnet_agilent_pos.pt \
-	--result_path ./example/output_pos.mgf
+python pred.py --model molnet --dataset merge --num_atoms 300 --resolution 0.2 --ion_mode N \
+	--test_data_path ./example/pre_input.csv \
+	--resume_path ./release/molnet_agilent_neg.pt \
+	--result_path ./example/output_neg.mgf
 ```
 
 ## Other experimental commands

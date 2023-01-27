@@ -114,6 +114,7 @@ class MolConv(nn.Module):
 class Encoder(nn.Module):
     def __init__(self, in_dim, layers, emb_dim, k): 
         super(Encoder, self).__init__()
+        self.emb_dim = emb_dim
         self.hidden_layers = nn.ModuleList([MolConv(in_dim=in_dim, out_dim=layers[0], k=k, remove_xyz=True)])
         for i in range(1, len(layers)): 
             if i == 1:
@@ -154,8 +155,8 @@ class Encoder(nn.Module):
 
         x = torch.cat(xs, dim=1)
         x = self.conv(x)
-        p1 = F.adaptive_max_pool1d(x, 1).squeeze()
-        p2 = F.adaptive_avg_pool1d(x, 1).squeeze()
+        p1 = F.adaptive_max_pool1d(x, 1).squeeze().view(-1, self.emb_dim)
+        p2 = F.adaptive_avg_pool1d(x, 1).squeeze().view(-1, self.emb_dim)
         
         x = torch.cat((p1, p2), 1)
         x = self.merge(x)

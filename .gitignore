@@ -132,7 +132,7 @@ dmypy.json
 
 data/
 example/*sdf.gz
-example/output*
+example/*output*
 example/pre*
 release/
 update_later/

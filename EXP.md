@@ -323,3 +323,32 @@ python eval.py --model dgcnn --dataset merge --resolution 0.2 --ion_mode N \
 	--result_path ./results/dgcnn_agilent_neg.csv
 ```
 
+### 3. SchNet + MSDecoder
+
+```bash
+python train.py --model schnet --dataset merge --epochs 300 --resolution 0.2 --batch_size 64 --ion_mode P \
+    --train_data_path ./data/MERGE/exp/train_ALL_MERGE_agilent.mgf \
+	--test_data_path ./data/MERGE/exp/test_ALL_MERGE_agilent.mgf \
+	--log_dir ./logs \
+	--checkpoint_path ./check_point/schnet_agilent_pos.pt \
+	--resume_path ./check_point/schnet_agilent_pos.pt \
+	--device 1 
+python eval.py --model schnet --dataset merge --resolution 0.2 --ion_mode P \
+	--test_data_path ./data/MERGE/exp/test_ALL_MERGE_agilent.mgf \
+	--resume_path ./check_point/schnet_agilent_pos.pt \
+	--result_path ./results/schnet_agilent_pos.csv
+
+python train.py --model schnet --dataset merge --epochs 300 --resolution 0.2 --batch_size 64 --ion_mode N \
+    --train_data_path ./data/MERGE/exp/train_ALL_MERGE_agilent.mgf \
+	--test_data_path ./data/MERGE/exp/test_ALL_MERGE_agilent.mgf \
+	--log_dir ./logs \
+	--transfer \
+	--checkpoint_path ./check_point/schnet_agilent_neg.pt \
+	--resume_path ./check_point/schnet_agilent.pt \
+	--device 1 
+python eval.py --model schnet --dataset merge --resolution 0.2 --ion_mode N \
+	--test_data_path ./data/MERGE/exp/test_ALL_MERGE_agilent.mgf \
+	--resume_path ./check_point/schnet_agilent_neg.pt \
+	--result_path ./results/schnet_agilent_neg.csv
+```
+
