@@ -32,23 +32,35 @@ CACTUS = "https://cactus.nci.nih.gov/chemical/structure/{0}/{1}"
 def smiles_to_iupac(smiles):
     rep = "iupac_name"
     url = CACTUS.format(smiles, rep)
-    response = requests.get(url)
-    response.raise_for_status()
-    return response.text
+    try: 
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.text
+    except:
+        print("Sorry, your structure identifier could not be resolved (the request returned a HTML 404 status message)")
+        return ""
 
 def smiles_to_inchi(smiles):
     rep = "stdinchi"
     url = CACTUS.format(smiles, rep)
-    response = requests.get(url)
-    response.raise_for_status()
-    return response.text
+    try: 
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.text
+    except:
+        print("Sorry, your structure identifier could not be resolved (the request returned a HTML 404 status message)")
+        return ""
 
 def smiles_to_inchikey(smiles):
     rep = "stdinchikey"
     url = CACTUS.format(smiles, rep)
-    response = requests.get(url)
-    response.raise_for_status()
-    return response.text
+    try: 
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.text
+    except:
+        print("Sorry, your structure identifier could not be resolved (the request returned a HTML 404 status message)")
+        return ""
 
 def inference(model, device, loader, batch_size, num_atoms): 
     model.eval()
@@ -107,7 +119,7 @@ if __name__ == "__main__":
     parser.add_argument('--resume_path', type=str, required=True, 
                         help='Pretrained model path')
     parser.add_argument('--result_path', type=str, required=True, 
-                        help='Output the resutls path')
+                        help='Output the resutls path (.csv/.mgf)')
 
     parser.add_argument('--batch_size', type=int, default=1, 
                         help='Size of batch)')
