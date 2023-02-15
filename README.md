@@ -75,18 +75,28 @@ Released pretrained models are [3DMolMS_Release](https://drive.google.com/drive/
 - `molnet_agilent_neg.pt` is trained on negative ion mode Agilent QTOF spectra from Agilent DPCL and NIST20. 
 
 ```bash
-python pred.py --model molnet --dataset merge --num_atoms 300 --resolution 0.2 \
-	--ion_mode <P/N> \
+python pred.py --model molnet --dataset merge --num_atoms 300 --resolution 0.2 --ion_mode <P/N> \
 	--test_data_path <path to input csv file> \
 	--resume_path <path to pretrained model> \
-	--result_path <path to output csv/mgf file>
-# Please note that the batch size is 1 in default settings. It can be changed to other numbers by `--batch_size <integer>`. 
-# If it is changed to other numbers, the model could infer faster but some data will be dropped if the dataset number can not 
-# be evenly divisible by the batch size. 
+	--result_path <path to output csv/mgf file> \
+	--iupac <(option)True/False, output IUPAC in .mgf file> \
+	--inchi <(option)True/False, output InChI in .mgf file> \
+	--inchi_key <(option)True/False, output InChI Key in .mgf file> 
+```
 
-# If you would like to use certain 3D conformers, you could use the setting `--test_mol_path <path to test molecular comformers data (.sdf.gz)>`. 
+Please note that: 
 
-# e.g. 
+- The batch size is 1 in default settings. It can be changed to other numbers by `--batch_size <integer>`. 
+If it is changed to other numbers, the model could infer faster but some data will be dropped if the dataset number can not 
+be evenly divisible by the batch size. 
+
+- If you would like to use certain 3D conformers, you could use the setting `--test_mol_path <path to test molecular comformers data (.sdf.gz)>`.
+
+- Outputting IUPAC, InChI, and InChI Key will take minutes for searching them through [CACTUS](https://cactus.nci.nih.gov/). 
+
+Here are two sample commands: 
+
+```bash
 python pred.py --model molnet --dataset merge --num_atoms 300 --resolution 0.2 --ion_mode P \
 	--test_data_path ./example/pre_input.csv \
 	--resume_path ./release/molnet_agilent_pos.pt \
@@ -96,6 +106,8 @@ python pred.py --model molnet --dataset merge --num_atoms 300 --resolution 0.2 -
 	--resume_path ./release/molnet_agilent_neg.pt \
 	--result_path ./example/output_neg.mgf
 ```
+
+
 
 ## Other experimental commands
 

@@ -120,6 +120,12 @@ if __name__ == "__main__":
                         help='Pretrained model path')
     parser.add_argument('--result_path', type=str, required=True, 
                         help='Output the resutls path (.csv/.mgf)')
+    parser.add_argument('--iupac', type=bool, default=False,
+                        help='output IUPAC of molecules')
+    parser.add_argument('--inchi', type=bool, default=False,
+                        help='output InChI of molecules')
+    parser.add_argument('--inchi_key', type=bool, default=False,
+                        help='output InChI Key of molecules')
 
     parser.add_argument('--batch_size', type=int, default=1, 
                         help='Size of batch)')
@@ -233,14 +239,19 @@ if __name__ == "__main__":
                     'collision_energy': row['Collision_Energy'],
                     'organism': '3DMolMS_v1.0', 
                     'smiles': smiles, 
-                    'iupac': smiles_to_iupac(smiles), 
-                    'inchi': smiles_to_inchi(smiles), 
-                    'inchi_key': smiles_to_inchikey(smiles), 
+                    # 'iupac': smiles_to_iupac(smiles), 
+                    # 'inchi': smiles_to_inchi(smiles), 
+                    # 'inchi_key': smiles_to_inchikey(smiles), 
                     'spectrumid': prefix+'_'+str(idx), 
                 },
                 'm/z array': np.array([float(i) for i in row['Pred M/Z'].split(',')]),
                 'intensity array': np.array([float(i)*1000 for i in row['Pred Intensity'].split(',')])
             } 
+            if args.iupac:
+                spectrum['params']['iupac'] = smiles_to_iupac(smiles)
+                spectrum['params']['inchi'] = smiles_to_inchi(smiles)
+                spectrum['params']['inchi_key'] = smiles_to_inchikey(smiles)
+
             spectra.append(spectrum)
         mgf.write(spectra, args.result_path, file_mode="w", write_charges=False)
     else:
