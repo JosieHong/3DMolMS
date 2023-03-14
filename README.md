@@ -5,7 +5,7 @@
 -->
 # 3DMolMS: Prediction of Tandem Mass Spectra from Three Dimensional Molecular Conformations
 
-
+👏 The online service of 3DMolMS is available on [[GNPS2]](https://spectrumprediction.gnps2.org)!
 
 ## Set up
 
@@ -76,9 +76,9 @@ Released pretrained models are [3DMolMS_Release](https://drive.google.com/drive/
 
 ```bash
 python pred.py --model molnet --dataset merge --num_atoms 300 --resolution 0.2 --ion_mode <P/N> \
-	--test_data_path <path to input csv file> \
+	--test_data_path <path to input .csv file> \
 	--resume_path <path to pretrained model> \
-	--result_path <path to output csv/mgf file> \
+	--result_path <path to output .csv/.mgf file> \
 	--iupac <(option)True/False, output IUPAC in .mgf file> \
 	--inchi <(option)True/False, output InChI in .mgf file> \
 	--inchi_key <(option)True/False, output InChI Key in .mgf file> 

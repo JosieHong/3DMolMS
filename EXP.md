@@ -38,9 +38,6 @@ cat ../data/Agilent/Agilent_Combined.mgf ../data/Agilent/Agilent_Metlin.mgf > ..
 # 3. clean up
 python clean_up.py --input ../data/Agilent/ALL_Agilent.mgf --output ../data/Agilent/ALL_Agilent_clean.mgf --log ../data/Agilent/clean_up.json --dataset_name agilent
 
-# 4. data prepare
-python data_prepare.py --input ../data/Agilent/ALL_Agilent_clean.mgf --output_dir ../data/Agilent/proc/ --log ../data/Agilent/proc/filterout_multi.json --cond agilent
-
 # 4. filter by the following conditions:
 	# (1) organism
 	# (2) instrument
