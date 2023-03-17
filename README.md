@@ -3,9 +3,15 @@
  * @LastEditors: yuhhong
  * @LastEditTime: 2022-12-11 01:00:20
 -->
-# 3DMolMS: Prediction of Tandem Mass Spectra from Three Dimensional Molecular Conformations
+# 3DMolMS
 
-👏 The online service of 3DMolMS is available on [[GNPS2]](https://spectrumprediction.gnps2.org)!
+[![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
+
+👏 The online service of 3DMolMS is available on [[GNPS2]](https://spectrumprediction.gnps2.org).
+
+🎉 Our paper is available on [[bioRxiv]](https://www.biorxiv.org/content/10.1101/2023.03.15.532823v1).
+
+
 
 ## Set up
 
@@ -68,7 +74,7 @@ The following item will be removed in the preprocessing:
 
 ## Inference using the released models
 
-Released pretrained models are [3DMolMS_Release](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=sharing). 
+Released pretrained models can be download from [Google Drive - 3DMolMS_Release](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=sharing). 
 
 - `molnet_agilent_pos.pt` is trained on positive ion mode Agilent QTOF spectra from Agilent DPCL and NIST20. 
 
@@ -113,3 +119,15 @@ python pred.py --model molnet --dataset merge --num_atoms 300 --resolution 0.2 -
 
 All the data preparing, training, and evaluation commands are in `EXP.md`.
 
+
+
+---
+
+This work is licensed under a
+[Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa].
+
+[![CC BY-NC-SA 4.0][cc-by-nc-sa-image]][cc-by-nc-sa]
+
+[cc-by-nc-sa]: http://creativecommons.org/licenses/by-nc-sa/4.0/
+[cc-by-nc-sa-image]: https://licensebuttons.net/l/by-nc-sa/4.0/88x31.png
+[cc-by-nc-sa-shield]: https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg

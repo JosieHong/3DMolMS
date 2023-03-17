@@ -225,6 +225,13 @@ def load_data(data_path, mol_path, num_atoms, out_dim, resolution, ion_mode, dat
     return data_loader 
 
 def batch_filter(supp, num_atoms=200, out_dim=2000, ion_mode='P', data_type='mgf'): 
+    ATOM_LIST = ['C', 'H', 'O', 'N', 'F', 'S', 'Cl', 'P', 'B', 'Br', 'I']
+    ADD_LIST = ['M+H', 'M-H', 'M+H-H2O', 'M+Na', 'M+H-NH3', 'M+H-2H2O', 'M-H-H2O', 'M+NH4', 'M+H-CH4O', 'M+2Na-H', 
+                'M+H-C2H6O', 'M+Cl', 'M+OH', 'M+H+2i', '2M+H', '2M-H', 'M-H-CO2', 'M+2H', 'M-H+2i', 'M+H-CH2O2', 'M+H-C4H8', 
+                'M+H-C2H4O2', 'M+H-C2H4', 'M+CHO2', 'M-H-CH3', 'M+H-H2O+2i', 'M+H-C2H2O', 'M+H-C3H6', 'M+H-CH3', 'M+H-3H2O', 
+                'M+H-HF', 'M-2H', 'M-H2O+H', 'M-2H2O+H']
+    INST_LIST = ['HCD', 'QqQ', 'QTOF', 'FT', 'N/A']
+
     if ion_mode == 'P':
         ion_mode = ['p', 'positive']
     elif ion_mode == 'N':
@@ -233,27 +240,36 @@ def batch_filter(supp, num_atoms=200, out_dim=2000, ion_mode='P', data_type='mgf
         ion_mode = ['p', 'positive', 'n', 'negative']
     # for training and test, we use `.mgf` files
     print('Batch filter...')
+
     if data_type == 'mgf':
         for _, item in tqdm(enumerate(supp)): 
             smiles = item.get('params').get('smiles')
+            # check max m/z
             if item.get('m/z array').max() > out_dim: 
                 continue
             mol = Chem.MolFromSmiles(smiles)
+            # check mol
+            if mol == None:
+                continue
+            # check atom number
             mol = Chem.AddHs(mol)
             if len(mol.GetAtoms()) > num_atoms or len(mol.GetAtoms()) == 0: 
                 continue
+            # check atom type
+            flag = False
+            for atom in mol.GetAtoms():
+                if atom.GetSymbol() not in ATOM_LIST: 
+                    flag = True
+                    break
+            if flag: 
+                continue
+            # check precursor type
             if item['params']['ionmode'].lower() not in ion_mode: 
                 continue
             yield item
 
     # for inference, we use `.csv` files
-    elif data_type == 'csv':
-        ATOM_LIST = ['C', 'H', 'O', 'N', 'F', 'S', 'Cl', 'P', 'B', 'Br', 'I']
-        ADD_LIST = ['M+H', 'M-H', 'M+H-H2O', 'M+Na', 'M+H-NH3', 'M+H-2H2O', 'M-H-H2O', 'M+NH4', 'M+H-CH4O', 'M+2Na-H', 
-                    'M+H-C2H6O', 'M+Cl', 'M+OH', 'M+H+2i', '2M+H', '2M-H', 'M-H-CO2', 'M+2H', 'M-H+2i', 'M+H-CH2O2', 'M+H-C4H8', 
-                    'M+H-C2H4O2', 'M+H-C2H4', 'M+CHO2', 'M-H-CH3', 'M+H-H2O+2i', 'M+H-C2H2O', 'M+H-C3H6', 'M+H-CH3', 'M+H-3H2O', 
-                    'M+H-HF', 'M-2H', 'M-H2O+H', 'M-2H2O+H']
-        INST_LIST = ['HCD', 'QqQ', 'QTOF', 'FT', 'N/A']
+    elif data_type == 'csv': 
         for _, row in supp.iterrows(): 
             mol = Chem.MolFromSmiles(row['SMILES'])
             if mol == None: 
@@ -265,10 +281,14 @@ def batch_filter(supp, num_atoms=200, out_dim=2000, ion_mode='P', data_type='mgf
                 print('{}: atom number is larger than {}'.format(row['ID'], num_atoms))
                 continue
             # check atom type
+            flag = False
             for atom in mol.GetAtoms():
                 if atom.GetSymbol() not in ATOM_LIST:
                     print('{}: {} is not in the Atom List.'.format(row['ID'], atom.GetSymbol()))
-                    continue
+                    flag = True
+                    break
+            if flag:
+                continue
             # check precursor type
             if row['Precursor_Type'] not in ADD_LIST:
                 print('{}: {} is not in the Precusor Type List.'.format(row['ID'], row['Precursor_Type']))
@@ -278,5 +298,6 @@ def batch_filter(supp, num_atoms=200, out_dim=2000, ion_mode='P', data_type='mgf
                 print('{}: {} is not in the Intrument List.'.format(row['ID'], row['Source_Instrument']))
                 continue
             yield row.to_dict()
+
     else:
         raise Exception("Undefied data type: %s" % data_type)
