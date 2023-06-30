@@ -114,30 +114,7 @@ python random_spliter.py 0.5 ../data/MassBank/proc/ALL_MB_qtof.mgf
 # Save 1448/480 data to ../data/MassBank/exp/test_ALL_MB_qtof.mgf
 ```
 
-~~2. GNPS (test data)~~
-
-Download GNPS subset here: 
-
-```bash
-wget https://gnps-external.ucsd.edu/gnpslibrary/LDB_POSITIVE.mgf
-wget https://gnps-external.ucsd.edu/gnpslibrary/LDB_NEGATIVE.mgf
-wget https://gnps-external.ucsd.edu/gnpslibrary/IQAMDB.mgf
-```
-
-```bash
-cd ./tools
-# 1. add title
-python add_title.py ../data/GNPS_lib/raw/LDB_NEGATIVE.mgf ../data/GNPS_lib/raw/LDB_NEGATIVE_titled.mgf
-python add_title.py ../data/GNPS_lib/raw/LDB_POSITIVE.mgf ../data/GNPS_lib/raw/LDB_POSITIVE_titled.mgf
-# 2. clean up
-python clean_up.py --input ../data/GNPS_lib/raw/LDB_NEGATIVE_titled.mgf --output ../data/GNPS_lib/LDB_NEGATIVE_clean.mgf --log ../data/GNPS_lib/clean_up.json --dataset_name gnps
-python clean_up.py --input ../data/GNPS_lib/raw/LDB_POSITIVE_titled.mgf --output ../data/GNPS_lib/LDB_POSITIVE_clean.mgf --log ../data/GNPS_lib/clean_up.json --dataset_name gnps
-# 3. filter by conditions
-python cond_filter_single.py --input ../data/GNPS_lib/LDB_NEGATIVE_clean.mgf --output ../data/GNPS_lib/proc/LDB_NEGATIVE_neg.mgf --log ../data/NIST20/proc/filterout_ldb_neg.json --cond gnps_neg
-python cond_filter_single.py --input ../data/GNPS_lib/LDB_POSITIVE_clean.mgf --output ../data/GNPS_lib/proc/LDB_POSITIVE_pos.mgf --log ../data/NIST20/proc/filterout_ldb_pos.json --cond gnps_pos
-```
-
-3. Export smiles for other models
+2. Export smiles for other models
 
 ```bash
 python extract_smiles_list.py --input ../data/MassBank/exp/test_ALL_MB_qtof.mgf --output ../data/MassBank/test_ALL_MB_qtof_pos.txt --ion_mode P
@@ -187,6 +164,14 @@ python train.py --model molnet --dataset merge --epochs 300 --resolution 0.2 --b
 	--resume_path ./check_point/molnet_agilent.pt \
 	--device 1 
 
+python train.py --model molnet --dataset merge --epochs 300 --resolution 0.2 --batch_size 64 --ion_mode ALL \
+    --train_data_path ./data/MERGE/exp/train_ALL_MERGE_agilent.mgf \
+	--test_data_path ./data/MERGE/exp/test_ALL_MERGE_agilent.mgf \
+	--log_dir ./logs \
+	--checkpoint_path ./check_point/tmp.pt \
+	--resume_path ./check_point/tmp.pt \
+	--device 1 
+
 # positive
 python train.py --model molnet --dataset merge --epochs 300 --resolution 0.2 --batch_size 64 --ion_mode P \
     --train_data_path ./data/MERGE/exp/train_ALL_MERGE_agilent.mgf \
@@ -216,7 +201,7 @@ python eval.py --model molnet --dataset merge --resolution 0.2 --ion_mode N \
 	--result_path ./results/molnet_agilent_neg.csv 
 ```
 
-### 2. Eval on MoNA
+### 2. Eval on MassBank (MoNA)
 
 ```bash
 python eval.py --model molnet --dataset merge --resolution 0.2 --ion_mode P \
@@ -230,7 +215,7 @@ python eval.py --model molnet --dataset merge --resolution 0.2 --ion_mode N \
 	--result_path ./results/molnet_mb_test_neg.csv
 ```
 
-### 3. Fine-tune on MoNA
+### 3. Fine-tune on MassBank (MoNA)
 
 ```bash
 python train.py --model molnet --dataset merge --epochs 300 --resolution 0.2 --batch_size 64 --ion_mode P \

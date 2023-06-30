@@ -7,9 +7,24 @@
 
 [![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
 
+📎 Our paper is accepted by [[Bioinformatics]](https://academic.oup.com/bioinformatics/article/39/6/btad354/7186501). Please use the citation: 
+
+```
+@article{hong20233dmolms,
+  title={3DMolMS: prediction of tandem mass spectra from 3D molecular conformations},
+  author={Hong, Yuhui and Li, Sujun and Welch, Christopher J and Tichy, Shane and Ye, Yuzhen and Tang, Haixu},
+  journal={Bioinformatics},
+  volume={39},
+  number={6},
+  pages={btad354},
+  year={2023},
+  publisher={Oxford University Press}
+}
+```
+
 👏 The online service of 3DMolMS is available on [[GNPS2]](https://spectrumprediction.gnps2.org).
 
-🎉 Our paper is available on [[bioRxiv]](https://www.biorxiv.org/content/10.1101/2023.03.15.532823v1).
+🎉 Our manuscripts is available on [[bioRxiv]](https://www.biorxiv.org/content/10.1101/2023.03.15.532823v1).
 
 
 
