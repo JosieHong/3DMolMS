@@ -6,39 +6,30 @@ import yaml
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from molnet import MolNet_MS
-from dataset import MolMS_Dataset
+from molnet import MolNet_RT
+from dataset import MolRT_Dataset
 
 def get_lr(optimizer):
 	for param_group in optimizer.param_groups:
 		return param_group['lr']
 
-def reg_criterion(outputs, targets): 
-	# cosine similarity
-	t = nn.CosineSimilarity(dim=1)
-	spec_cosi = torch.mean(1 - t(outputs, targets))
-	return spec_cosi
-
 def train_step(model, device, loader, optimizer, batch_size, num_points): 
 	accuracy = 0
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader):
-			_, x, y, env = batch
+			_, x, y = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
 			y = y.to(device=device, dtype=torch.float)
-			env = env.to(device=device, dtype=torch.float)
-			# print(x.size(), y.size(), env.size())
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			optimizer.zero_grad()
 			model.train()
-			pred = model(x, env, idx_base) 
-			loss = reg_criterion(pred, y)
+			pred = model(x, idx_base) 
+			loss = nn.MSELoss()(pred, y)
 			loss.backward()
 
 			bar.set_description('Train')
@@ -47,10 +38,7 @@ def train_step(model, device, loader, optimizer, batch_size, num_points):
 
 			optimizer.step()
 
-			# recover sqrt spectra to original spectra
-			y = torch.pow(y, 2)
-			pred = torch.pow(pred, 2)
-			accuracy += F.cosine_similarity(pred, y, dim=1).mean().item()
+			accuracy += torch.abs(pred - y).mean().item()
 	return accuracy / (step + 1)
 
 def eval_step(model, device, loader, batch_size, num_points): 
@@ -58,27 +46,19 @@ def eval_step(model, device, loader, batch_size, num_points):
 	accuracy = 0
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader):
-			_, x, y, env = batch
+			_, x, y = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
 			y = y.to(device=device, dtype=torch.float)
-			env = env.to(device=device, dtype=torch.float)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			with torch.no_grad(): 
-				pred = model(x, env, idx_base) 
-				pred = pred / torch.max(pred) # normalize the output
+				pred = model(x, idx_base) 
 				
 			bar.set_description('Eval')
 			bar.update(1)
-	
-			# recover sqrt spectra to original spectra
-			y = torch.pow(y, 2)
-			pred = torch.pow(pred, 2)
-			# post process
-			pred = pred.detach().cpu().apply_(lambda x: x if x > 0.01 else 0).to(device)
 
-			accuracy += F.cosine_similarity(pred, y, dim=1).mean().item()
+			accuracy += torch.abs(pred - y).mean().item()
 	return accuracy / (step + 1)
 
 def init_random_seed(seed):
@@ -91,17 +71,15 @@ def init_random_seed(seed):
 
 if __name__ == "__main__": 
 	parser = argparse.ArgumentParser(description='Mass Spectrum Prediction (Train)')
-	parser.add_argument('--train_data', type=str, default='./data/agilent_qtof_etkdg_train.pkl',
+	parser.add_argument('--train_data', type=str, default='./data/metlin_etkdg_train.pkl',
 						help='path to training data (pkl)')
-	parser.add_argument('--test_data', type=str, default='./data/agilent_qtof_etkdg_test.pkl',
+	parser.add_argument('--test_data', type=str, default='./data/metlin_etkdg_test.pkl',
 						help='path to test data (pkl)')
-	parser.add_argument('--precursor_type', type=str, default='All', choices=['All', '[M+H]+', '[M-H]-'], 
-                        help='Precursor type')
-	parser.add_argument('--model_config_path', type=str, default='./config/molnet.yml',
+	parser.add_argument('--model_config_path', type=str, default='./config/molnet_rt.yml',
 						help='path to model and training configuration')
 	parser.add_argument('--data_config_path', type=str, default='./config/preprocess_etkdg.yml',
 						help='path to configuration')
-	parser.add_argument('--checkpoint_path', type=str, default = './check_point/molnet_agilent_qtof_etkdg.pt',
+	parser.add_argument('--checkpoint_path', type=str, default = './check_point/molnet_rt_etkdg.pt',
 						help='Path to save checkpoint')
 	parser.add_argument('--resume_path', type=str, default='', 
 						help='Path to pretrained model')
@@ -124,23 +102,14 @@ if __name__ == "__main__":
 	print('Load the model & training configuration from {}'.format(args.model_config_path))
 
 	# 1. Data
-	# convert precursor type to encoded precursor type for filtering
-	with open(args.data_config_path, 'r') as f: 
-		tmp = yaml.load(f, Loader=yaml.FullLoader)
-		precursor_encoder = {}
-		for k, v in tmp['encoding']['precursor_type'].items(): 
-			precursor_encoder[k] = ','.join([str(int(i)) for i in v])
-		precursor_encoder['All'] = False
-		del tmp
-		
-	train_set = MolMS_Dataset(args.train_data, precursor_encoder[args.precursor_type])
+	train_set = MolRT_Dataset(args.train_data)
 	train_loader = DataLoader(
 					train_set,
 					batch_size=config['train']['batch_size'], 
 					shuffle=True, 
 					num_workers=config['train']['num_workers'], 
 					drop_last=True)
-	valid_set = MolMS_Dataset(args.test_data, precursor_encoder[args.precursor_type])
+	valid_set = MolRT_Dataset(args.test_data)
 	valid_loader = DataLoader(
 					valid_set,
 					batch_size=config['train']['batch_size'], 
@@ -152,19 +121,19 @@ if __name__ == "__main__":
 	device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() and not args.no_cuda else torch.device("cpu")
 	print(f'Device: {device}')
 
-	model = MolNet_MS(config['model']).to(device)
+	model = MolNet_RT(config['model']).to(device)
 	num_params = sum(p.numel() for p in model.parameters())
 	print(f'{str(model)} #Params: {num_params}')
 
 	# 3. Train
 	optimizer = optim.AdamW(model.parameters(), lr=config['train']['lr'])
-	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=5)
+	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10)
 	if args.transfer and args.resume_path != '': 
 		print("Load the pretrained encoder...")
 		state_dict = torch.load(args.resume_path, map_location=device)['model_state_dict']
 		encoder_dict = {}
 		for name, param in state_dict.items(): 
-			if not name.startswith("decoder.fc"): 
+			if not name.startswith("decoder"): 
 				encoder_dict[name] = param
 		model.load_state_dict(encoder_dict, strict=False)
 	elif args.resume_path != '':
@@ -172,29 +141,29 @@ if __name__ == "__main__":
 		model.load_state_dict(torch.load(args.resume_path, map_location=device)['model_state_dict'])
 		optimizer.load_state_dict(torch.load(args.resume_path, map_location=device)['optimizer_state_dict'])
 		scheduler.load_state_dict(torch.load(args.resume_path, map_location=device)['scheduler_state_dict'])
-		best_valid_acc = torch.load(args.resume_path)['best_val_acc']
+		best_valid_mae = torch.load(args.resume_path)['best_val_mae']
 
 	if args.checkpoint_path != '':
 		checkpoint_dir = "/".join(args.checkpoint_path.split('/')[:-1])
 		os.makedirs(checkpoint_dir, exist_ok = True)
 
-	best_valid_acc = 0
-	early_stop_step = 10
+	best_valid_mae = 999999
+	early_stop_step = 30
 	early_stop_patience = 0
 	for epoch in range(1, config['train']['epochs'] + 1): 
 		print("\n=====Epoch {}".format(epoch))
-		train_acc = train_step(model, device, train_loader, optimizer, 
+		train_mae = train_step(model, device, train_loader, optimizer, 
 								batch_size=config['train']['batch_size'], num_points=config['model']['max_atom_num'])
-		valid_acc = eval_step(model, device, valid_loader, 
+		valid_mae = eval_step(model, device, valid_loader, 
 								batch_size=config['train']['batch_size'], num_points=config['model']['max_atom_num'])
-		print("Train: Acc: {}, \nValidation: Acc: {}".format(train_acc, valid_acc))
+		print("Train: MAE: {}, \nValidation: MAE: {}".format(train_mae, valid_mae))
 
-		if valid_acc > best_valid_acc:
-			best_valid_acc = valid_acc
+		if valid_mae < best_valid_mae: 
+			best_valid_mae = valid_mae
 
 			if args.checkpoint_path != '':
 				print('Saving checkpoint...')
-				checkpoint = {'epoch': epoch, 'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict(), 'scheduler_state_dict': scheduler.state_dict(), 'best_val_acc': best_valid_acc, 'num_params': num_params}
+				checkpoint = {'epoch': epoch, 'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict(), 'scheduler_state_dict': scheduler.state_dict(), 'best_val_mae': best_valid_mae, 'num_params': num_params}
 				torch.save(checkpoint, args.checkpoint_path)
 
 			early_stop_patience = 0
@@ -204,10 +173,10 @@ if __name__ == "__main__":
 			print('Early stop count: {}/{}'.format(early_stop_patience, early_stop_step))
 
 		# scheduler.step()
-		scheduler.step(valid_acc) # ReduceLROnPlateau
-		print(f'Best cosine similarity so far: {best_valid_acc}')
+		scheduler.step(valid_mae) # ReduceLROnPlateau
+		print(f'Best cosine similarity so far: {best_valid_mae}')
 
-		if early_stop_patience == early_stop_step:
+		if early_stop_patience == early_stop_step: 
 			print('Early stop!')
 			break
 

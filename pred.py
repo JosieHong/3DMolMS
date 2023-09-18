@@ -1,260 +1,312 @@
-'''
-Date: 2022-05-20 22:59:30
-LastEditors: yuhhong
-LastEditTime: 2022-05-28 17:57:18
-'''
-
 import os
 import argparse
 import numpy as np
-from tqdm import tqdm
 import pandas as pd
-
-import torch
-import torch.nn.functional as F
+from tqdm import tqdm
+import yaml
+import pickle
 from pyteomics import mgf
 
-from models.pointnet import PointNet_MS
-from models.dgcnn import DGCNN_MS
-from models.molnet import MolNet_MS
-from models.schnet import SchNet_MS
-from metrics import get_metrics
-from utils import load_data, generate_3d_comformers_csv, generate_2d_comformers_csv, spec_convert
+import torch
+from torch.utils.data import DataLoader
 
 from rdkit import Chem
+# ignore the warning
+from rdkit import RDLogger 
+RDLogger.DisableLog('rdApp.*')
 from rdkit.Chem import Descriptors
-import requests
+
+from molnet import MolNet_MS
+from dataset import Mol_Dataset
+from data_utils import ce2nce, parse_collision_energy, conformation_array, precursor_calculator, generate_ms
+
+global batch_size
+batch_size = 1
 
 
 
-CACTUS = "https://cactus.nci.nih.gov/chemical/structure/{0}/{1}"
+def spec_convert(spec, resolution):
+	x = []
+	y = []
+	for i, j in enumerate(spec):
+		if j != 0: 
+			x.append(str(i*resolution))
+			y.append(str(j))
+	return {'m/z': ','.join(x), 'intensity': ','.join(y)}
 
-def smiles_to_iupac(smiles):
-    rep = "iupac_name"
-    url = CACTUS.format(smiles, rep)
-    try: 
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.text
-    except:
-        print("Sorry, your structure identifier could not be resolved (the request returned a HTML 404 status message)")
-        return ""
+def csv2pkl_dict(csv_path, encoder, save_pkl): 
+	pkl_path = csv_path.replace('.csv', '.pkl')
+	df = pd.read_csv(csv_path)
+	data = []
+	for idx, row in df.iterrows(): 
+		# mol array
+		good_conf, xyz_arr, atom_type = conformation_array(smiles=row['SMILES'], 
+															conf_type=encoder['conf_type']) 
+		# There are some limitations of conformation generation methods. 
+		# e.g. https://github.com/rdkit/rdkit/issues/5145
+		# Let's skip the unsolvable molecules. 
+		if not good_conf: # filter 1
+			print('Can not generate correct conformation: {}'.format(row['SMILES']))
+			continue
+		if xyz_arr.shape[0] > encoder['max_atom_num']: # filter 2
+			print('Atomic number ({}) exceed the limitation ({})'.format(encoder['max_atom_num'], xyz_arr.shape[0]))
+			continue
+		# filter 3
+		rare_atom_flag = False
+		rare_atom = ''
+		for atom in list(set(atom_type)):
+			if atom not in encoder['atom_type'].keys(): 
+				rare_atom_flag = True
+				rare_atom = atom
+				break
+		if rare_atom_flag:
+			print('Unsupported atom type: {}'.format(rare_atom))
+			continue
 
-def smiles_to_inchi(smiles):
-    rep = "stdinchi"
-    url = CACTUS.format(smiles, rep)
-    try: 
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.text
-    except:
-        print("Sorry, your structure identifier could not be resolved (the request returned a HTML 404 status message)")
-        return ""
+		atom_type_one_hot = np.array([encoder['atom_type'][atom] for atom in atom_type])
+		assert xyz_arr.shape[0] == atom_type_one_hot.shape[0]
 
-def smiles_to_inchikey(smiles):
-    rep = "stdinchikey"
-    url = CACTUS.format(smiles, rep)
-    try: 
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.text
-    except:
-        print("Sorry, your structure identifier could not be resolved (the request returned a HTML 404 status message)")
-        return ""
+		mol_arr = np.concatenate([xyz_arr, atom_type_one_hot], axis=1)
+		mol_arr = np.pad(mol_arr, ((0, encoder['max_atom_num']-xyz_arr.shape[0]), (0, 0)), constant_values=0)
+		
+		# env array
+		precursor_mz = precursor_calculator(row['Precursor_Type'], mass=Descriptors.MolWt(Chem.MolFromSmiles(row['SMILES'])))
+		nce = ce2nce(ce=row['Collision_Energy'], 
+						precursor_mz=precursor_mz, 
+						charge=row['Charge'])
+		if row['Precursor_Type'] not in encoder['precursor_type'].keys(): # filter 4
+			print('Unsupported precusor type: {}'.format(row['Precursor_Type']))
+			continue
+		precursor_type_one_hot = encoder['precursor_type'][row['Precursor_Type']]
+		env_arr = np.array([nce] + precursor_type_one_hot)
 
-def inference(model, device, loader, batch_size, num_atoms): 
-    model.eval()
-    y_pred = []
-    ids = []
-    smiles = []
-    for _, batch in enumerate(tqdm(loader, desc="Iteration")):
-        id, s, x, mask, env = batch
-        x = x.to(device).to(torch.float32)
-        x = x.permute(0, 2, 1)
-        
-        # encode adduct and instrument by one hot
-        add = env[:, 0].to(device).to(torch.int64)
-        add_oh = F.one_hot(add, num_classes=args.num_add)
-        ins = env[:, 1].to(device).to(torch.int64)
-        ins_oh = F.one_hot(ins, num_classes=2)
-        ce = env[:, 2].to(device).to(torch.float32).unsqueeze(1)
-        env = torch.cat((add_oh, ins_oh, ce), 1)
+		data.append({'title': row['ID'], 'mol': mol_arr, 'env': env_arr})
 
-        idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1)*num_atoms
+	if save_pkl: 
+		with open(csv_path.replace('.csv', '_no_spec.pkl'), 'wb') as f: 
+			pickle.dump(data, f)
+			print('Save converted pkl file to {}'.format(csv_path.replace('.csv', '.mgf')))
+	return data
 
-        with torch.no_grad():
-            pred = model(x, env, idx_base) 
-            pred = pred / torch.max(pred) # normalize the output
-            # post process
-            # pred = pred.detach().cpu().apply_(lambda x: x if x > 0.001 else 0).to(device)
+def mgf2pkl_dict(mgf_path, encoder, save_pkl, with_spec=False): 
+	pkl_path = mgf_path.replace('.mgf', '.pkl')
+	supp = mgf.read(mgf_path)
+	data = []
+	for idx, spec in enumerate(supp):
+		# mol array
+		good_conf, xyz_arr, atom_type = conformation_array(smiles=spec['params']['smiles'], 
+															conf_type=encoder['conf_type']) 
+		if not good_conf: # filter 1
+			print('Can not generate correct conformation: {}'.format(spec['params']['smiles']))
+			continue 
+		if xyz_arr.shape[0] > encoder['max_atom_num']: # filter 2
+			print('Atomic number ({}) exceed the limitation ({})'.format(encoder['max_atom_num'], xyz_arr.shape[0]))
+			continue
+		# filter 3
+		rare_atom_flag = False
+		rare_atom = ''
+		for atom in list(set(atom_type)):
+			if atom not in encoder['atom_type'].keys(): 
+				rare_atom_flag = True
+				rare_atom = atom
+				break
+		if rare_atom_flag:
+			print('Unsupported atom type: {}'.format(rare_atom))
+			continue
+		
+		atom_type_one_hot = np.array([encoder['atom_type'][atom] for atom in atom_type])
+		assert xyz_arr.shape[0] == atom_type_one_hot.shape[0]
 
-        pred = torch.pow(pred, 2)
-        pred = pred.detach().cpu().apply_(lambda x: x if x > 0.001 else 0).to(device) # post process
-        
-        y_pred.append(pred.detach().cpu())
-        ids = ids + list(id)
-        smiles = smiles + list(s)
+		mol_arr = np.concatenate([xyz_arr, atom_type_one_hot], axis=1)
+		mol_arr = np.pad(mol_arr, ((0, encoder['max_atom_num']-xyz_arr.shape[0]), (0, 0)), constant_values=0)
 
-    y_pred = torch.cat(y_pred, dim = 0)
-    return ids, smiles, y_pred
+		# env array
+		if 'charge' not in spec['params'].keys(): 
+			print('Empty charge. We will assume it as charge 1.')
+			charge = 1
+		elif isinstance(spec['params']['charge'], list): # convert pyteomics.auxiliary.structures.ChargeList to int
+			charge = int(spec['params']['charge'][0])
+		precursor_mz = precursor_calculator(spec['params']['precursor_type'], mass=Descriptors.MolWt(Chem.MolFromSmiles(spec['params']['smiles'])))
+		ce, nce = parse_collision_energy(ce_str=spec['params']['collision_energy'], 
+									precursor_mz=precursor_mz, 
+									charge=charge)
+		if spec['params']['precursor_type'] not in encoder['precursor_type'].keys(): # filter 4
+			print('Unsupported precusor type: {}'.format(spec['params']['precursor_type']))
+			continue
+		precursor_type_one_hot = encoder['precursor_type'][spec['params']['precursor_type']]
+		env_arr = np.array([nce] + precursor_type_one_hot)
+
+		if with_spec:
+			spec_arr = generate_ms(x=spec['m/z array'], 
+								y=spec['intensity array'], 
+								precursor_mz=spec['params']['precursor_mz'], 
+								resolution=encoder['resolution'], 
+								max_mz=encoder['max_mz'], 
+								charge=charge)
+			data.append({'title': spec['params']['title'], 'mol': mol_arr, 'spec': spec_arr, 'env': env_arr})
+		else:
+			data.append({'title': spec['params']['title'], 'mol': mol_arr, 'env': env_arr})
+	
+	if save_pkl: 
+		if with_spec:
+			pkl_path = mgf_path.replace('.mgf', '.pkl')
+		else:
+			pkl_path = mgf_path.replace('.mgf', '_no_spec.pkl')
+		with open(pkl_path, 'wb') as f: 
+			pickle.dump(data, f)
+			print('Save converted pkl file to {}'.format(pkl_path))
+	return data
+
+def pred_step(model, device, loader, batch_size, num_points): 
+	model.eval()
+	id_list = []
+	pred_list = []
+	with tqdm(total=len(loader)) as bar:
+		for step, batch in enumerate(loader):
+			ids, x, env = batch
+			x = x.to(device=device, dtype=torch.float)
+			x = x.permute(0, 2, 1)
+			env = env.to(device=device, dtype=torch.float)
+			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
+
+			with torch.no_grad(): 
+				pred = model(x, env, idx_base) 
+				pred = pred / torch.max(pred) # normalize the output
+				
+			bar.set_description('Eval')
+			bar.update(1)
+	
+			# recover sqrt spectra to original spectra
+			pred = torch.pow(pred, 2)
+			# post process
+			pred = pred.detach().cpu().apply_(lambda x: x if x > 0.01 else 0)
+
+			id_list += ids
+			pred_list.append(pred)
+
+	pred_list = torch.cat(pred_list, dim = 0)
+	return id_list, pred_list
+
+def init_random_seed(seed):
+	np.random.seed(seed)
+	torch.manual_seed(seed)
+	torch.cuda.manual_seed(seed)
+	return
 
 
 
-if __name__ == "__main__":
-    # Training settings
-    parser = argparse.ArgumentParser(description='Mass Spectrum Prediction')
-    parser.add_argument('--model', type=str, default='molnet', choices=['pointnet', 'dgcnn', 'molnet', 'schnet'],
-                        help='Model to use, [pointnet, dgcnn, molnet, schnet]')
-    parser.add_argument('--dataset', type=str, default='merge', choices=['merge'],
-                        help='Dataset to use, only [merge] has been supported here')
-    parser.add_argument('--ion_mode', type=str, default='P', choices=['P', 'N', 'ALL'], 
-                        help='Ion mode used for training and test') 
-    parser.add_argument('--mol_type', type=str, default='3d', choices=['2d', '3d'], 
-                        help='2D or 3D molecules?')
-    parser.add_argument('--test_data_path', type=str, default = '',
-                        help='path to test data (.csv)')
-    parser.add_argument('--test_mol_path', type=str, default = '',
-                        help='path to test molecular comformers data (.sdf.gz)')
+if __name__ == "__main__": 
+	parser = argparse.ArgumentParser(description='Mass Spectrum Prediction (Train)')
+	parser.add_argument('--test_data', type=str, default='./data/agilent_qtof_etkdg_test.pkl',
+						help='path to test data (pkl)')
+	parser.add_argument('--save_pkl', type=bool, default=False,
+						help='Save converted pkl file')
+	parser.add_argument('--with_spec', type=bool, default=False,
+						help='Save spectra in converted pkl file')
+	parser.add_argument('--precursor_type', type=str, default='All', choices=['All', '[M+H]+', '[M-H]-'], 
+                        help='Precursor type')
+	parser.add_argument('--model_config_path', type=str, default='./config/molnet.yml',
+						help='path to model and training configuration')
+	parser.add_argument('--data_config_path', type=str, default='./config/preprocess_etkdg.yml',
+						help='path to data configuration')
+	parser.add_argument('--resume_path', type=str, default='', 
+						help='Path to pretrained model')
+	parser.add_argument('--result_path', type=str, default='', 
+						help='Path to saving results')
+	
+	parser.add_argument('--seed', type=int, default=42,
+						help='Seed for random functions')
+	parser.add_argument('--device', type=int, default=0,
+						help='Which gpu to use if any')
+	parser.add_argument('--no_cuda', type=bool, default=False,
+						help='Enables CUDA training')
+	args = parser.parse_args()
 
-    parser.add_argument('--resume_path', type=str, required=True, 
-                        help='Pretrained model path')
-    parser.add_argument('--result_path', type=str, required=True, 
-                        help='Output the resutls path (.csv/.mgf)')
-    parser.add_argument('--iupac', type=bool, default=False,
-                        help='output IUPAC of molecules')
-    parser.add_argument('--inchi', type=bool, default=False,
-                        help='output InChI of molecules')
-    parser.add_argument('--inchi_key', type=bool, default=False,
-                        help='output InChI Key of molecules')
+	init_random_seed(args.seed)
+	with open(args.model_config_path, 'r') as f: 
+		config = yaml.load(f, Loader=yaml.FullLoader)
+	print('Load the model & training configuration from {}'.format(args.model_config_path))
 
-    parser.add_argument('--batch_size', type=int, default=1, 
-                        help='Size of batch)')
-    parser.add_argument('--num_workers', type=int, default=0,
-                        help='number of workers (default: 0)')
+	# 1. Data
+	test_format = args.test_data.split('.')[-1]
+	if test_format == 'csv': 
+		# convert csv file into pkl 
+		with open(args.data_config_path, 'r') as f: 
+			data_config = yaml.load(f, Loader=yaml.FullLoader)
+		print('Load the data configuration from {}'.format(args.data_config_path))
+		pkl_dict = csv2pkl_dict(args.test_data, data_config['encoding'], args.save_pkl)
+	elif test_format == 'pkl': 
+		with open(args.test_data, 'rb') as file: 
+			pkl_dict = pickle.load(file)
+	elif test_format == 'mgf':
+		# convert mgf file into pkl 
+		with open(args.data_config_path, 'r') as f: 
+			data_config = yaml.load(f, Loader=yaml.FullLoader)
+		print('Load the data configuration from {}'.format(args.data_config_path))
+		pkl_dict = mgf2pkl_dict(args.test_data, data_config['encoding'], args.save_pkl, args.with_spec) 
+	else:
+		raise ValueError('Unsupported format: {}'.format(test_format))
 
-    parser.add_argument('--device', type=int, default=0,
-                        help='which gpu to use if any (default: 0)')
-    parser.add_argument('--no_cuda', type=bool, default=False,
-                        help='enables CUDA training')
+	# convert precursor type to encoded precursor type for filtering
+	with open(args.data_config_path, 'r') as f: 
+		tmp = yaml.load(f, Loader=yaml.FullLoader)
+		precursor_encoder = {}
+		for k, v in tmp['encoding']['precursor_type'].items(): 
+			precursor_encoder[k] = ','.join([str(int(i)) for i in v])
+		precursor_encoder['All'] = False
+		del tmp
 
-    parser.add_argument('--dropout', type=float, default=0.3,
-                        help='dropout rate')
-    parser.add_argument('--in_channels', type=int, default=21, 
-                        help='Channels of inputs')
-    parser.add_argument('--num_atoms', type=int, default=300, 
-                        help='Max atom number of each input molecule (default: 300)')
-    parser.add_argument('--num_add', type=int, default=5, 
-                        help='Type number of adducts (default: 5)')
-    parser.add_argument('--emb_dim', type=int, default=2048, 
-                        help='Dimension of embeddings (default: 2048)')
-    parser.add_argument('--out_dim', type=int, default=1500, 
-                        help='Output dimensionality (default: 1500)')
-    parser.add_argument('--resolution', type=float, default=1, 
-                        help='Resolution of the output spectra (default: 1)')
-    parser.add_argument('--k', type=int, default=5, 
-                        help='Number of nearest neighbors to use (default: 5)')
+	valid_set = Mol_Dataset(pkl_dict, precursor_encoder[args.precursor_type])
+	valid_loader = DataLoader(
+					valid_set,
+					batch_size=batch_size, 
+					shuffle=False, 
+					num_workers=config['train']['num_workers'], 
+					drop_last=True)
 
-    args = parser.parse_args()
-    args.cuda = not args.no_cuda and torch.cuda.is_available()
+	# 2. Model
+	device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() and not args.no_cuda else torch.device("cpu")
+	print(f'Device: {device}')
 
-    np.random.seed(42)
-    torch.manual_seed(42)
-    torch.cuda.manual_seed(42)
+	model = MolNet_MS(config['model']).to(device)
+	num_params = sum(p.numel() for p in model.parameters())
+	print(f'{str(model)} #Params: {num_params}')
 
-    if args.mol_type == '3d': 
-        # generate 3d comformers
-        if args.test_mol_path == '':
-            test_mol_path = args.test_data_path[:-4] + '_3d.sdf.gz'
-        else:
-            test_mol_path = args.test_mol_path
-        if not os.path.exists(test_mol_path): 
-            print("Generate 3D comformers for test data...")
-            test_mol_path, write_cnt = generate_3d_comformers_csv(args.test_data_path, test_mol_path) 
-            print("Write {} 3D molecules to {}\n".format(write_cnt, test_mol_path))
-    else:
-        # generate 2d comformers
-        if args.test_mol_path == '':
-            test_mol_path = args.test_data_path[:-4] + '_2d.sdf.gz'
-        else:
-            test_mol_path = args.test_mol_path
-        if not os.path.exists(test_mol_path): 
-            print("Generate 2D comformers for test data...")
-            test_mol_path, write_cnt = generate_2d_comformers_csv(args.test_data_path, test_mol_path) 
-            print("Write {} 2D molecules to {}\n".format(write_cnt, test_mol_path))
+	# 3. Evaluation
+	print("Load the checkpoints...")
+	model.load_state_dict(torch.load(args.resume_path, map_location=device)['model_state_dict'])
+	best_valid_acc = torch.load(args.resume_path, map_location=device)['best_val_acc']
 
-    dataset = args.dataset + '_infer'
-    valid_loader = load_data(data_path=args.test_data_path, mol_path=test_mol_path, 
-                            num_atoms=args.num_atoms, out_dim=args.out_dim, resolution=args.resolution, ion_mode=args.ion_mode, dataset=dataset, 
-                            num_workers=args.num_workers, batch_size=args.batch_size, data_augmentation=False, shuffle=False)
-    
-    if args.model == 'pointnet':
-        model = PointNet_MS(args)
-    elif args.model == 'dgcnn':
-        model = DGCNN_MS(args)
-    elif args.model == 'molnet': 
-        model = MolNet_MS(args)
-    elif args.model == 'schnet':
-        model = SchNet_MS(args)
-    num_params = sum(p.numel() for p in model.parameters())
-    # print(f'{str(model)} #Params: {num_params}')
-    print(f'#Params: {num_params}')
-    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() and args.cuda else torch.device("cpu")
-    print(f'Device: {device}')
-    model.to(device)
+	id_list, pred_list = pred_step(model, device, valid_loader, 
+									batch_size=batch_size, num_points=config['model']['max_atom_num'])
+	pred_list = [spec_convert(spec, config['model']['resolution']) for spec in pred_list.tolist()]
+	pred_mz = [pred['m/z'] for pred in pred_list]
+	pred_intensity = [pred['intensity'] for pred in pred_list]
 
-    model.load_state_dict(torch.load(args.resume_path, map_location=device)['model_state_dict'])
+	# 4. Output the results
+	result_dir = "".join(args.result_path.split('/')[:-1])
+	os.makedirs(result_dir, exist_ok = True)
 
-    print('Inference...')
-    ids, smiles, y_pred = inference(model, device, valid_loader, args.batch_size, args.num_atoms)
+	res_df = pd.DataFrame({'ID': id_list, 'Pred M/Z': pred_mz, 'Pred Intensity': pred_intensity})
+	if args.result_path[-3:] == 'csv': # save results to csv file
+		res_df.to_csv(args.result_path, sep='\t')
+	elif args.result_path[-3:] == 'mgf': # save results to mgf file
+		spectra = []
+		prefix = 'pred'
+		for idx, row in res_df.iterrows(): 
+			spectrum = {
+				'params': {
+					'title': row['ID'], 
+					'mslevel': '2', 
+					'organism': '3DMolMS_v1.1', 
+					'spectrumid': prefix+'_'+str(idx), 
+				},
+				'm/z array': np.array([float(i) for i in row['Pred M/Z'].split(',')]),
+				'intensity array': np.array([float(i)*1000 for i in row['Pred Intensity'].split(',')])
+			} 
+			spectra.append(spectrum)
+		mgf.write(spectra, args.result_path, file_mode="w", write_charges=False)
+	else:
+		raise Exception("Not implemented output format. Please choose `.csv` or `.mgf`.")
 
-    pred_list = [spec_convert(spec, args.resolution) for spec in y_pred.tolist()]
-    pred_mz = [pred['m/z'] for pred in pred_list]
-    pred_intensity = [pred['intensity'] for pred in pred_list]
-    
-    result_dir = "".join(args.result_path.split('/')[:-1])
-    os.makedirs(result_dir, exist_ok = True)
-
-    data_df = pd.read_csv(args.test_data_path)
-    data_df['ID'] = data_df['ID'].apply(lambda x: str(x))
-    res_df = pd.DataFrame({'ID': ids, 'SMILES': smiles, 'Pred M/Z': pred_mz, 'Pred Intensity': pred_intensity})
-    res_df = res_df.merge(data_df, how='left', on=['ID', 'SMILES'])
-    
-    if args.result_path[-3:] == 'csv':
-        res_df.to_csv(args.result_path, sep='\t')
-    elif args.result_path[-3:] == 'mgf':
-        spectra = []
-        prefix = 'pred'
-
-        # save results to mgf file
-        for idx, row in res_df.iterrows(): 
-            smiles = row['SMILES']
-            mol = Chem.MolFromSmiles(smiles)
-            spectrum = {
-                'params': {
-                    'title': row['ID'], 
-                    'precursor_type': row['Precursor_Type'],
-                    'mslevel': '2',
-                    'pepmass': Descriptors.ExactMolWt(mol), 
-                    'source_instrument': row['Source_Instrument'],
-                    'collision_energy': row['Collision_Energy'],
-                    'organism': '3DMolMS_v1.0', 
-                    'smiles': smiles, 
-                    # 'iupac': smiles_to_iupac(smiles), 
-                    # 'inchi': smiles_to_inchi(smiles), 
-                    # 'inchi_key': smiles_to_inchikey(smiles), 
-                    'spectrumid': prefix+'_'+str(idx), 
-                },
-                'm/z array': np.array([float(i) for i in row['Pred M/Z'].split(',')]),
-                'intensity array': np.array([float(i)*1000 for i in row['Pred Intensity'].split(',')])
-            } 
-            if args.iupac:
-                spectrum['params']['iupac'] = smiles_to_iupac(smiles)
-                spectrum['params']['inchi'] = smiles_to_inchi(smiles)
-                spectrum['params']['inchi_key'] = smiles_to_inchikey(smiles)
-
-            spectra.append(spectrum)
-        mgf.write(spectra, args.result_path, file_mode="w", write_charges=False)
-    else:
-        raise Exception("Not implemented output format. Please choose `.csv` or `.mgf`.")
-
-    print('Save the test results to {}'.format(args.result_path))
+	print('Save the test results to {}'.format(args.result_path))
