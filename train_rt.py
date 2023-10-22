@@ -1,3 +1,8 @@
+'''
+Date: 2023-10-03 21:09:14
+LastEditors: yuhhong
+LastEditTime: 2023-10-20 17:16:17
+'''
 import os
 import argparse
 import numpy as np
@@ -9,7 +14,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from molnet import MolNet_RT
+from molnet import MolNet_Oth
 from dataset import MolRT_Dataset
 
 def get_lr(optimizer):
@@ -121,7 +126,7 @@ if __name__ == "__main__":
 	device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() and not args.no_cuda else torch.device("cpu")
 	print(f'Device: {device}')
 
-	model = MolNet_RT(config['model']).to(device)
+	model = MolNet_Oth(config['model']).to(device)
 	num_params = sum(p.numel() for p in model.parameters())
 	print(f'{str(model)} #Params: {num_params}')
 
@@ -174,7 +179,7 @@ if __name__ == "__main__":
 
 		# scheduler.step()
 		scheduler.step(valid_mae) # ReduceLROnPlateau
-		print(f'Best cosine similarity so far: {best_valid_mae}')
+		print(f'Best MAE so far: {best_valid_mae}')
 
 		if early_stop_patience == early_stop_step: 
 			print('Early stop!')

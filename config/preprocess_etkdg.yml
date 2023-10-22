@@ -1,5 +1,13 @@
+qm9:
+  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
+  prop_idx: 6 # mu
+  min_molmass: 50
+  max_molmass: 1500
+  max_atom_num: 300
+  min_atom_num: 10
+
 agilent_qtof: 
-  intrument_type: ESI-QTOF
+  intrument_type: ['ESI-QTOF']
   instrument: [Unknown]
   ms_level: '2'
   atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
@@ -11,23 +19,11 @@ agilent_qtof:
   min_atom_num: 10
 
 nist_qtof: 
-  intrument_type: Q-TOF
+  intrument_type: ['Q-TOF']
   instrument: [Agilent QTOF 6530]
   ms_level: 'MS2'
   atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
-  precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+']
-  min_mz: 50
-  max_mz: 1500
-  min_peak_num: 5
-  max_atom_num: 300
-  min_atom_num: 10
-
-nist_hcd:
-  intrument_type: HCD
-  instrument: ['Thermo Finnigan Velos Orbitrap', 'Thermo Finnigan Elite Orbitrap', 'Orbitrap Fusion Lumos']
-  ms_level: 'MS2'
-  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
-  precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+']
+  precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
   min_mz: 50
   max_mz: 1500
   min_peak_num: 5

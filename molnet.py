@@ -285,16 +285,20 @@ class MolNet_MS(nn.Module):
 
 
 
-class MolNet_RT(nn.Module): 
+# -----------------------------------
+# >>>          3DMol_REG          <<<
+#     (model for regression tasks)
+# -----------------------------------
+class MolNet_REG(nn.Module): 
 	def __init__(self, config): 
-		super(MolNet_RT, self).__init__()
+		super(MolNet_REG, self).__init__()
 		
 		self.encoder = Encoder(in_dim=int(config['in_dim']), 
 									layers=config['encode_layers'],
 									emb_dim=int(config['emb_dim']), 
 									k=int(config['k']))
 		self.decoder = MSDecoder(in_dim=int(config['emb_dim']), 
-								layers=config['decode_layers'], 
+								layers=config['pretrain_decode_layers'], 
 								out_dim=1, 
 								dropout=config['dropout'])
 		
@@ -322,3 +326,5 @@ class MolNet_RT(nn.Module):
 		# decoder
 		x = self.decoder(x)
 		return x
+	
+

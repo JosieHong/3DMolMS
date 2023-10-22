@@ -1,4 +1,9 @@
-# Transfer learning experiments of 3DMolMS
+<!--
+ * @Date: 2023-10-03 17:36:39
+ * @LastEditors: yuhhong
+ * @LastEditTime: 2023-10-06 11:51:32
+-->
+# Molecular Properties Prediction using 3DMolMS
 
 
 
@@ -17,7 +22,7 @@ Step 1: Download the retention time dataset, [[METLIN]](https://figshare.com/art
 Step 2: Use the following commands to preprocess the datasets. The settings of datasets are in `./preprocess_etkdg.yml`. 
 
 ```bash
-python preprocess_rt.py --dataset metlin 
+nohup python preprocess_rt.py --dataset metlin > preprocess_metlin.out 
 ```
 
 Step 3: Use the following commands to train the model. The settings of model and training are in `./config/molnet_rt.yml`. If you'd like to train this model from the pre-trained model on MS/MS prediction, please download the pre-trained model from [[Google Drive]](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link). 
@@ -28,7 +33,7 @@ python train_rt.py --train_data ./data/metlin_etkdg_train.pkl \
 --test_data ./data/metlin_etkdg_test.pkl \
 --model_config_path ./config/molnet_rt.yml \
 --data_config_path ./config/preprocess_etkdg.yml \
---checkpoint_path ./check_point/molnet_rt_etkdg.pt 
+--checkpoint_path ./check_point/molnet_rt_etkdg.pt
 
 # transfer from MS/MS prediction
 python train_rt.py --train_data ./data/metlin_etkdg_train.pkl \

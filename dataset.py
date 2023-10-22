@@ -1,3 +1,8 @@
+'''
+Date: 2023-10-02 20:24:27
+LastEditors: yuhhong
+LastEditTime: 2023-10-20 17:01:37
+'''
 import pickle
 import numpy as np
 
@@ -66,6 +71,27 @@ class Mol_Dataset(Dataset):
 				filtered_data.append(d)
 		return filtered_data
 
+
+
+class MolPRE_Dataset(Dataset): 
+	def __init__(self, path): 
+		with open(path, 'rb') as file: 
+			data = pickle.load(file)
+		# tmp
+		self.data = []
+		for d in data: 
+			if 'mol' in d.keys(): 
+				self.data.append(d)
+		print('Load {} data from {}'.format(len(self.data), path))
+
+	def __len__(self): 
+		return len(self.data)
+
+	def __getitem__(self, idx): 
+		# print(self.data[idx])
+		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['y']
+	
+	
 	
 class MolRT_Dataset(Dataset): 
 	def __init__(self, path, data_augmentation=True): 

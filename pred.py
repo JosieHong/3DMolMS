@@ -92,7 +92,7 @@ def mgf2pkl_dict(mgf_path, encoder, save_pkl, with_spec=False):
 	pkl_path = mgf_path.replace('.mgf', '.pkl')
 	supp = mgf.read(mgf_path)
 	data = []
-	for idx, spec in enumerate(supp):
+	for idx, spec in enumerate(supp): 
 		# mol array
 		good_conf, xyz_arr, atom_type = conformation_array(smiles=spec['params']['smiles'], 
 															conf_type=encoder['conf_type']) 
