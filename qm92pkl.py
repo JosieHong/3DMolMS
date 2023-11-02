@@ -20,9 +20,7 @@ from data_utils import conformation_array
 
 
 
-def xyz2dict(xyz_dir, prop_idx=6): 
-	assert prop_idx >= 3 and prop_idx <= 17, 'prop_idx={} not supported'.format(prop_idx)
-
+def xyz2dict(xyz_dir): 
 	pkl_list = [] 
 	xyz_list = os.listdir(xyz_dir)
 	for _, file_name in enumerate(tqdm(xyz_list)): 
@@ -36,9 +34,19 @@ def xyz2dict(xyz_dir, prop_idx=6):
 		atom_num = int(data[0])
 		assert len(data) == atom_num + 5, 'something goes wrong with the xyz file\n{}'.format(data)
 		scalar_prop = data[1].split('\t')
+		# atoms = data[2:2+atom_num]
 		smiles = data[-2].split('\t')[0] # SMILES strings from GDB-17 and from B3LYP relaxation
-		
-		pkl_list.append({'title': file_name, 'smiles': smiles, 'y': np.array([scalar_prop[prop_idx]], dtype=np.float)})
+		# inchi = data[-1].split('\t')[0] # InChI strings for Corina and B3LYP geometries
+
+		# josie: since we need the atomic attributes, we need to calculate the xyz-coordinates by ourselves
+		# mol_arr = []
+		# for atom in atoms:
+		# 	atom_type = encoder['atom_type'][atom.split('\t')[0]]
+		# 	atom_xyz = atom.split('\t')[1:4]
+		# 	# atom_charge = atom.split('\t')[1:-1]
+		# 	mol_arr.append(atom_type+atom_xyz)
+		# mol_arr = np.array(mol_arr, dtype=np.float)
+		pkl_list.append({'title': file_name, 'smiles': smiles, 'y': np.array(scalar_prop[3:16], dtype=np.float)})
 	print('Load {} data from {}'.format(len(pkl_list), xyz_dir))
 	return pkl_list 
 
@@ -124,8 +132,8 @@ if __name__ == "__main__":
 
 	# 1. read all mol_arr from dsC7O2H10nsd and dsgdb9nsd
 	print('\n>>> Step 1: convert original format to pkl;')
-	pkl_list1 = xyz2dict(os.path.join(args.raw_dir, 'dsC7O2H10nsd'), prop_idx=config['qm9']['prop_idx'])
-	pkl_list2 = xyz2dict(os.path.join(args.raw_dir, 'dsgdb9nsd'), prop_idx=config['qm9']['prop_idx'])
+	pkl_list1 = xyz2dict(os.path.join(args.raw_dir, 'dsC7O2H10nsd'))
+	pkl_list2 = xyz2dict(os.path.join(args.raw_dir, 'dsgdb9nsd'))
 	
 	# 2. remove uncharacterized molecules & filter our by rules
 	print('\n>>> Step 2: remove uncharacterized molecules; filter out spectra by certain rules;')

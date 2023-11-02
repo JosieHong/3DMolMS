@@ -46,7 +46,7 @@ class MolMS_Dataset(Dataset):
 				filtered_data.append(d)
 		return filtered_data
 	
-
+	
 
 class Mol_Dataset(Dataset):
 	def __init__(self, data, precursor_type=False): 
@@ -94,23 +94,10 @@ class MolPRE_Dataset(Dataset):
 	
 	
 class MolRT_Dataset(Dataset): 
-	def __init__(self, path, data_augmentation=True): 
+	def __init__(self, path): 
 		with open(path, 'rb') as file: 
-			data = pickle.load(file)
-
-		# data augmentation by flipping the x,y,z-coordinates
-		if data_augmentation: 
-			flipping_data = []
-			for d in data:
-				flipping_mol_arr = np.copy(d['mol'])
-				flipping_mol_arr[:, 0] *= -1
-				flipping_data.append({'title': d['title']+'_f', 'mol': flipping_mol_arr, 'rt': d['rt']})
-			
-			self.data = data + flipping_data
-			print('Load {} data from {} (with data augmentation by flipping coordinates)'.format(len(self.data), path))
-		else:
-			self.data = data
-			print('Load {} data from {}'.format(len(self.data), path))
+			self.data = pickle.load(file)
+		print('Load {} data from {}'.format(len(self.data), path))
 
 	def __len__(self): 
 		return len(self.data)

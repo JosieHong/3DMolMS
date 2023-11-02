@@ -92,7 +92,7 @@ def mgf2pkl_dict(mgf_path, encoder, save_pkl, with_spec=False):
 	pkl_path = mgf_path.replace('.mgf', '.pkl')
 	supp = mgf.read(mgf_path)
 	data = []
-	for idx, spec in enumerate(supp): 
+	for idx, spec in enumerate(tqdm(supp)): 
 		# mol array
 		good_conf, xyz_arr, atom_type = conformation_array(smiles=spec['params']['smiles'], 
 															conf_type=encoder['conf_type']) 
@@ -126,10 +126,14 @@ def mgf2pkl_dict(mgf_path, encoder, save_pkl, with_spec=False):
 			charge = 1
 		elif isinstance(spec['params']['charge'], list): # convert pyteomics.auxiliary.structures.ChargeList to int
 			charge = int(spec['params']['charge'][0])
-		precursor_mz = precursor_calculator(spec['params']['precursor_type'], mass=Descriptors.MolWt(Chem.MolFromSmiles(spec['params']['smiles'])))
+		precursor_mz = precursor_calculator(spec['params']['precursor_type'], 
+											mass=Descriptors.MolWt(Chem.MolFromSmiles(spec['params']['smiles'])))
 		ce, nce = parse_collision_energy(ce_str=spec['params']['collision_energy'], 
 									precursor_mz=precursor_mz, 
 									charge=charge)
+		if ce == None and nce == None:
+			print('Unsupported collision energy: {}'.format(spec['params']['collision_energy']))
+			continue
 		if spec['params']['precursor_type'] not in encoder['precursor_type'].keys(): # filter 4
 			print('Unsupported precusor type: {}'.format(spec['params']['precursor_type']))
 			continue
@@ -199,9 +203,9 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Mass Spectrum Prediction (Train)')
 	parser.add_argument('--test_data', type=str, default='./data/agilent_qtof_etkdg_test.pkl',
 						help='path to test data (pkl)')
-	parser.add_argument('--save_pkl', type=bool, default=False,
+	parser.add_argument('--save_pkl', action='store_true', 
 						help='Save converted pkl file')
-	parser.add_argument('--with_spec', type=bool, default=False,
+	parser.add_argument('--with_spec', action='store_true', 
 						help='Save spectra in converted pkl file')
 	parser.add_argument('--precursor_type', type=str, default='All', choices=['All', '[M+H]+', '[M-H]-'], 
                         help='Precursor type')
@@ -218,7 +222,7 @@ if __name__ == "__main__":
 						help='Seed for random functions')
 	parser.add_argument('--device', type=int, default=0,
 						help='Which gpu to use if any')
-	parser.add_argument('--no_cuda', type=bool, default=False,
+	parser.add_argument('--no_cuda', action='store_true', 
 						help='Enables CUDA training')
 	args = parser.parse_args()
 

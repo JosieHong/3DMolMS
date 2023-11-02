@@ -19,30 +19,30 @@ Step 1: Download the retention time dataset, [[METLIN]](https://figshare.com/art
 	  |- SMRT_dataset.sdf
 ```
 
-Step 2: Use the following commands to preprocess the datasets. The settings of datasets are in `./preprocess_etkdg.yml`. 
+Step 2: Use the following commands to preprocess the datasets. The settings of datasets are in `./preprocess_etkdgv3.yml`. 
 
 ```bash
-nohup python preprocess_rt.py --dataset metlin > preprocess_metlin.out 
+python preprocess_rt.py --dataset metlin 
 ```
 
 Step 3: Use the following commands to train the model. The settings of model and training are in `./config/molnet_rt.yml`. If you'd like to train this model from the pre-trained model on MS/MS prediction, please download the pre-trained model from [[Google Drive]](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link). 
 
 ```bash
 # learn from scratch
-python train_rt.py --train_data ./data/metlin_etkdg_train.pkl \
---test_data ./data/metlin_etkdg_test.pkl \
+python train_rt.py --train_data ./data/metlin_etkdgv3_train.pkl \
+--test_data ./data/metlin_etkdgv3_test.pkl \
 --model_config_path ./config/molnet_rt.yml \
---data_config_path ./config/preprocess_etkdg.yml \
---checkpoint_path ./check_point/molnet_rt_etkdg.pt
+--data_config_path ./config/preprocess_etkdgv3.yml \
+--checkpoint_path ./check_point/molnet_rt_etkdgv3.pt 
 
-# transfer from MS/MS prediction
-python train_rt.py --train_data ./data/metlin_etkdg_train.pkl \
---test_data ./data/metlin_etkdg_test.pkl \
+# learn from pretrained model
+python train_rt.py --train_data ./data/metlin_etkdgv3_train.pkl \
+--test_data ./data/metlin_etkdgv3_test.pkl \
 --model_config_path ./config/molnet_rt.yml \
---data_config_path ./config/preprocess_etkdg.yml \
---checkpoint_path ./check_point/molnet_rt_etkdg_tl.pt \
+--data_config_path ./config/preprocess_etkdgv3.yml \
+--checkpoint_path ./check_point/molnet_rt_etkdgv3_tl.pt \
 --transfer \
---resume_path ./check_point/molnet_qtof_etkdg.pt 
+--resume_path ./check_point/molnet_pre_etkdgv3.pt 
 ```
 
 

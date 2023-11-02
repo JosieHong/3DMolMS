@@ -134,11 +134,12 @@ if __name__ == "__main__":
 	optimizer = optim.AdamW(model.parameters(), lr=config['train']['lr'])
 	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10)
 	if args.transfer and args.resume_path != '': 
-		print("Load the pretrained encoder...")
+		print("Load the pretrained encoder (freeze the encoder)...")
 		state_dict = torch.load(args.resume_path, map_location=device)['model_state_dict']
 		encoder_dict = {}
 		for name, param in state_dict.items(): 
 			if not name.startswith("decoder"): 
+				param.requires_grad = False # freeze the encoder
 				encoder_dict[name] = param
 		model.load_state_dict(encoder_dict, strict=False)
 	elif args.resume_path != '':

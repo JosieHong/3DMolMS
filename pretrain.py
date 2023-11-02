@@ -21,14 +21,14 @@ def get_lr(optimizer):
 	for param_group in optimizer.param_groups:
 		return param_group['lr']
 
-def train_step(model, device, loader, optimizer, batch_size, num_points): 
+def train_step(model, device, loader, optimizer, batch_size, num_points, prop_index): 
 	accuracy = 0
 	with tqdm(total=len(loader)) as bar:
-		for step, batch in enumerate(loader):
+		for step, batch in enumerate(loader): 
 			_, x, y = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
-			y = y.to(device=device, dtype=torch.float)
+			y = y[:, prop_index].to(device=device, dtype=torch.float).unsqueeze(1)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			optimizer.zero_grad()
@@ -46,7 +46,7 @@ def train_step(model, device, loader, optimizer, batch_size, num_points):
 			accuracy += torch.abs(pred - y).mean().item()
 	return accuracy / (step + 1)
 
-def eval_step(model, device, loader, batch_size, num_points): 
+def eval_step(model, device, loader, batch_size, num_points, prop_index): 
 	model.eval()
 	accuracy = 0
 	with tqdm(total=len(loader)) as bar:
@@ -54,7 +54,7 @@ def eval_step(model, device, loader, batch_size, num_points):
 			_, x, y = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
-			y = y.to(device=device, dtype=torch.float)
+			y = y[:, prop_index].to(device=device, dtype=torch.float).unsqueeze(1)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			with torch.no_grad(): 
@@ -80,6 +80,8 @@ if __name__ == "__main__":
 						help='path to training data (pkl)')
 	parser.add_argument('--test_data', type=str, default='./data/qm9_etkdg_test.pkl',
 						help='path to test data (pkl)')
+	parser.add_argument('--prop_index', type=int, default=3,
+						help='Index of property')
 	parser.add_argument('--model_config_path', type=str, default='./config/molnet.yml',
 						help='path to model and training configuration')
 	parser.add_argument('--data_config_path', type=str, default='./config/preprocess_etkdg.yml',
@@ -148,9 +150,13 @@ if __name__ == "__main__":
 	for epoch in range(1, config['train']['epochs'] + 1): 
 		print("\n=====Epoch {}".format(epoch))
 		train_mae = train_step(model, device, train_loader, optimizer, 
-								batch_size=config['train']['batch_size'], num_points=config['model']['max_atom_num'])
+								batch_size=config['train']['batch_size'], 
+								num_points=config['model']['max_atom_num'], 
+								prop_index=args.prop_index)
 		valid_mae = eval_step(model, device, valid_loader, 
-								batch_size=config['train']['batch_size'], num_points=config['model']['max_atom_num'])
+								batch_size=config['train']['batch_size'], 
+								num_points=config['model']['max_atom_num'], 
+								prop_index=args.prop_index)
 		print("Train: MAE: {}, \nValidation: MAE: {}".format(train_mae, valid_mae))
 
 		if valid_mae < best_valid_mae: 

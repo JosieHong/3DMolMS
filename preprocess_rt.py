@@ -1,3 +1,8 @@
+'''
+Date: 2023-10-03 17:20:52
+LastEditors: yuhhong
+LastEditTime: 2023-10-03 21:38:03
+'''
 import os
 import argparse
 import yaml
@@ -10,28 +15,9 @@ from rdkit import Chem
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
 
-from data_utils import conformation_array
+from data_utils import conformation_array, filter_mol
 
 
-
-def filter_mol(suppl, config): 
-	clean_suppl = []
-	smiles_list = []
-	for idx, mol in enumerate(tqdm(suppl)): 
-		if mol == None: continue
-
-		# Filter by atom number and atom type 
-		if len(mol.GetAtoms()) > config['max_atom_num'] or len(mol.GetAtoms()) < config['min_atom_num']: continue
-		is_compound_countain_rare_atom = False 
-		for atom in mol.GetAtoms(): 
-			if atom.GetSymbol() not in config['atom_type']:
-				is_compound_countain_rare_atom = True
-				break
-		if is_compound_countain_rare_atom: continue
-
-		clean_suppl.append(mol)
-		smiles_list.append(Chem.MolToSmiles(mol))
-	return clean_suppl, smiles_list
 
 def random_split(suppl, smiles_list, test_ratio=0.1):
 	test_smiles = np.random.choice(smiles_list, int(len(smiles_list)*test_ratio), replace=False)

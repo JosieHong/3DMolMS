@@ -10,11 +10,13 @@
 
 ## Updates 
 
-- 2023.10.22 (v1.2): pretrain on QM9-mu dataset + ETKDG algprithm. We establish a dataset from QM9-mu (dipole moment) with the generated conformations using ETKDG for pretraining 3DMolMS. It helps the model learning knowledge of molecular 3D conformations and enhances the performance on MS/MS slightly (~0.01 cosine similarity). 
+- 2023.10.30 (v1.10): enlarge training set by MoNA and Waters QTOF datasets. 
 
-- 2023.09.14 (v1.1): data augmentation by flipping atomic coordinates. Notably, this model is sensitive to the geometric structure of molecules. If you will use it for any task that is non-sensitive to geometric structure, e.g. mass spectrometry is chirally blind, please use data augmentation. 
+- 2023.10.22 (v1.02): pretrain on QM9-mu dataset + ETKDG algprithm. We establish a dataset from QM9-mu (dipole moment) with the generated conformations using ETKDG for pretraining 3DMolMS. It helps the model learning knowledge of molecular 3D conformations and pretraining enhances the performance on MS/MS slightly (~0.01 cosine similarity). 
 
-- 2023.06.30 (v1.0): initial version. 
+- 2023.09.14 (v1.01): data augmentation by flipping atomic coordinates. Notably, this model is sensitive to the geometric structure of molecules. For tasks insensitive to geometric structure, e.g. mass spectrometry is chirally blind, please use data augmentation. However, for the tasks sesitive to geometric structure, e.g. different enantiomers with varying retention times, avoid data augmentation. 
+
+- 2023.06.30 (v1.00): initial version. 
 
 
 
@@ -54,26 +56,26 @@ Please notice that the unsupported input will be filtered out automatically when
 | Item             | Supported input                                           |
 |------------------|-----------------------------------------------------------|
 | Atom number      | <=300                                                     |
-| Atom types       | ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I'] |
-| Precursor types  | ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+']             |
-| Collision energy | any                                                       |
+| Atom types       | 'C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I'   |
+| Precursor types  | '[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+'               |
+| Collision energy | any number                                                |
 
-Step 2: Download the model weights from [[Google Drive]](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link). If you have trained your own model, please ignore this step. 
+Step 2: Download the model weights (`molnet_qtof_etkdgv3.pt.zip`) from [[Google Drive]](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link). If you have trained your own model, please ignore this step. 
 
 Step 3: Test the model by the following commands: 
 
 ```bash
 python pred.py --test_data <path to test data (.csv, .mgf, or .pkl)> \
 --model_config_path ./config/molnet.yml \
---data_config_path ./config/preprocess_etkdg.yml \
+--data_config_path ./config/preprocess_etkdgv3.yml \
 --resume_path <path to pretrained model> \
 --result_path <path to save the results (.csv or .mgf file)> 
 
 # e.g.
 python pred.py --test_data ./demo/demo_input.csv \
 --model_config_path ./config/molnet.yml \
---data_config_path ./config/preprocess_etkdg.yml \
---resume_path ./check_point/molnet_qtof_etkdg.pt \
+--data_config_path ./config/preprocess_etkdgv3.yml \
+--resume_path ./check_point/molnet_qtof_etkdgv3.pt \
 --result_path ./demo/demo_output.csv
 ```
 
@@ -83,34 +85,36 @@ python pred.py --test_data ./demo/demo_input.csv \
 
 Please set up the environment as shown in step 0 from the above section. 
 
-Step 1: Download the pretrained model from [[Google Drive]](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link) or pretrain the model by yourself. The details of pretraining the model on [[QM9]](https://figshare.com/collections/Quantum_chemistry_structures_and_properties_of_134_kilo_molecules/978904)-mu are demonstrated at `../doc/PRETRAIN.md`. 
+Step 1: Download the pretrained model (`molnet_pre_etkdgv3.pt.zip`) from [Google Drive](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link) or pretrain the model by yourself. The details of pretraining the model on [[QM9]](https://figshare.com/collections/Quantum_chemistry_structures_and_properties_of_134_kilo_molecules/978904)-mu are demonstrated at `./doc/PRETRAIN.md`. 
 
-Step 2: Download the datasets separately, unzip and put them in `./data/`. [[NIST20]](https://www.nist.gov/programs-projects/nist23-updates-nist-tandem-and-electron-ionization-spectral-libraries) is academically available with a License, and please contact us for Agilent DPCL. The structure of data directory is: 
+Step 2: Gather the datasets separately, unzip and put them in `./data/`. In the latest version, we use 4 datasets to train the model: (1) Agilent DPCL is provided by [Agilent Technologies](https://www.agilent.com/). (2) [[NIST20]](https://www.nist.gov/programs-projects/nist23-updates-nist-tandem-and-electron-ionization-spectral-libraries) is academically available with a License. (3) [[MoNA]](https://mona.fiehnlab.ucdavis.edu/downloads) is publicly available. (4) Waters QTOF is our own experimental dataset. The structure of data directory is: 
 
 ```bash
 |- data
   |- origin
-	  |- Agilent_Combined.sdf
-	  |- Agilent_Metlin.sdf
-	  |- hr_msms_nist.SDF
+    |- Agilent_Combined.sdf
+    |- Agilent_Metlin.sdf
+    |- hr_msms_nist.SDF
+    |- MoNA-export-All_LC-MS-MS_QTOF.sdf
+    |- waters_qtof.mgf
 ```
 
-Step 3: Use the following commands to preprocess the datasets. The settings of datasets are in `./preprocess_etkdg.yml`. 
+Step 3: Use the following commands to preprocess the datasets. Please input the dataset you use at `--dataset` and choose the instrument type in `qtof` and `hcd`. `--maxmin_pick` means using the MaxMin algorithm in picking training molecules, otherwise, the random choice is applied. The settings of datasets are in `./preprocess_etkdgv3.yml`. 
 
 ```bash
-python preprocess.py --dataset qtof
+python preprocess.py --dataset agilent nist mona waters --instrument_type qtof --data_config_path ./config/preprocess_etkdgv3.yml
 ```
 
 Step 4: Use the following commands to train the model. The settings of model and training are in `./config/molnet.yml`. 
 
 ```bash
-python train.py --train_data ./data/qtof_etkdg_train.pkl \
---test_data ./data/qtof_etkdg_test.pkl \
+python train.py --train_data ./data/qtof_etkdgv3_train.pkl \
+--test_data ./data/qtof_etkdgv3_test.pkl \
 --model_config_path ./config/molnet.yml \
---data_config_path ./config/preprocess_etkdg.yml \
---checkpoint_path ./check_point/molnet_qtof_etkdg.pt \
+--data_config_path ./config/preprocess_etkdgv3.yml \
+--checkpoint_path ./check_point/molnet_qtof_etkdgv3.pt \
 --transfer \
---resume_path ./check_point/molnet_pre_etkdg.pt
+--resume_path ./check_point/molnet_pre_etkdgv3.pt
 ```
 
 In addition, we give the retention time prediction and collisional cross section prediction as two examples of molecular properties prediciton. Please see the details in `./doc/PROP_PRED.md`. 

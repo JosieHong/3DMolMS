@@ -2,6 +2,7 @@ import numpy as np
 import re
 from decimal import *
 import requests
+from tqdm import tqdm
 
 from rdkit import Chem
 # ignore the warning
@@ -11,6 +12,151 @@ from rdkit.Chem import AllChem
 
 
 
+# -----------------------------------
+# >>>    file-level functions     <<<
+# -----------------------------------
+def sdf2mgf(path, prefix): 
+	'''mgf format
+	[{
+		'params': {
+			'title': prefix_<index>, 
+			'precursor_type': <precursor_type (e.g. [M+NH4]+ and [M+H]+)>, 
+			'precursor_mz': <precursor m/z>,
+			'molmass': <isotopic mass>, 
+			'ms_level': <ms_level>, 
+			'ionmode': <POSITIVE|NEGATIVE>, 
+			'source_instrument': <source_instrument>,
+			'instrument_type': <instrument_type>, 
+			'collision_energy': <collision energe>, 
+			'smiles': <smiles>, 
+			'inchi_key': <inchi_key>, 
+		},
+		'm/z array': mz_array,
+		'intensity array': intensity_array
+	}, ...]
+	'''
+	supp = Chem.SDMolSupplier(path)
+	print('Read {} data from {}'.format(len(supp), path))
+
+	spectra = []
+	for idx, mol in enumerate(tqdm(supp)): 
+		if mol == None or \
+			not mol.HasProp('MASS SPECTRAL PEAKS') or \
+			not mol.HasProp('PRECURSOR TYPE') or \
+			not mol.HasProp('PRECURSOR M/Z') or \
+			not mol.HasProp('SPECTRUM TYPE') or \
+			not mol.HasProp('COLLISION ENERGY'): 
+			continue
+		
+		mz_array = []
+		intensity_array = []
+		raw_ms = mol.GetProp('MASS SPECTRAL PEAKS').split('\n')
+		for line in raw_ms:
+			mz_array.append(float(line.split()[0]))
+			intensity_array.append(float(line.split()[1]))
+		mz_array = np.array(mz_array)
+		intensity_array = np.array(intensity_array)
+
+		inchi_key = 'Unknown' if not mol.HasProp('INCHIKEY') else mol.GetProp('INCHIKEY')
+		instrument = 'Unknown' if not mol.HasProp('INSTRUMENT') else mol.GetProp('INSTRUMENT')
+		spectrum = {
+			'params': {
+				'title': prefix+'_'+str(idx), 
+				'precursor_type': mol.GetProp('PRECURSOR TYPE'),
+				'precursor_mz': mol.GetProp('PRECURSOR M/Z'),
+				'molmass': mol.GetProp('EXACT MASS'),
+				'ms_level': mol.GetProp('SPECTRUM TYPE'), 
+				'ionmode': mol.GetProp('ION MODE'), 
+				'source_instrument': instrument,
+				'instrument_type': mol.GetProp('INSTRUMENT TYPE'), 
+				'collision_energy': mol.GetProp('COLLISION ENERGY'), 
+				'smiles': Chem.MolToSmiles(mol, isomericSmiles=True), 
+				'inchi_key': inchi_key, 
+			},
+			'm/z array': mz_array,
+			'intensity array': intensity_array
+		} 
+		spectra.append(spectrum)
+	return spectra
+
+def filter_spec(spectra, config, type2charge): 
+	clean_spectra = []
+	smiles_list = []
+	for idx, spectrum in enumerate(tqdm(spectra)): 
+		smiles = spectrum['params']['smiles'] 
+		mol = Chem.AddHs(Chem.MolFromSmiles(smiles))
+		if mol == None: continue
+
+		# Filter by collision energy
+		if spectrum['params']['collision_energy'].startswith('ramp') or \
+				spectrum['params']['collision_energy'].startswith('Ramp') or \
+				spectrum['params']['collision_energy'].endswith('ramp'): # we can not process this type collision energy now
+			continue
+
+		# Filter by instrument type
+		instrument_type = spectrum['params']['instrument_type']
+		if instrument_type not in config['intrument_type']: continue
+
+		# Filter by instrument (MoNA contains too many intrument names to filter out)
+		if 'instrument' in config.keys(): 
+			instrument = spectrum['params']['source_instrument']
+			if instrument not in config['instrument']: continue
+
+		# Filter by mslevel
+		if 'ms_level' in config.keys(): 
+			mslevel = spectrum['params']['ms_level']
+			if mslevel != config['ms_level']: continue
+
+		# Filter by atom number and atom type 
+		if len(mol.GetAtoms()) > config['max_atom_num'] or len(mol.GetAtoms()) < config['min_atom_num']: continue
+		is_compound_countain_rare_atom = False 
+		for atom in mol.GetAtoms(): 
+			if atom.GetSymbol() not in config['atom_type']:
+				is_compound_countain_rare_atom = True
+				break
+		if is_compound_countain_rare_atom: continue
+
+		# Filter by precursor type
+		precursor_type = spectrum['params']['precursor_type']
+		if precursor_type not in config['precursor_type']: continue
+
+		# Filt by peak number
+		if len(spectrum['m/z array']) < config['min_peak_num']: continue
+
+		# Filter by max m/z
+		if np.max(spectrum['m/z array']) < config['min_mz'] or np.max(spectrum['m/z array']) > config['max_mz']: continue
+
+		# add charge
+		spectrum['params']['charge'] = type2charge[precursor_type]
+		clean_spectra.append(spectrum)
+		smiles_list.append(smiles)
+	return clean_spectra, smiles_list
+
+def filter_mol(suppl, config): 
+	clean_suppl = []
+	smiles_list = []
+	for idx, mol in enumerate(tqdm(suppl)): 
+		if mol == None: continue
+		mol = Chem.AddHs(mol)
+
+		# Filter by atom number and atom type 
+		if len(mol.GetAtoms()) > config['max_atom_num'] or len(mol.GetAtoms()) < config['min_atom_num']: continue
+		is_compound_countain_rare_atom = False 
+		for atom in mol.GetAtoms(): 
+			if atom.GetSymbol() not in config['atom_type']:
+				is_compound_countain_rare_atom = True
+				break
+		if is_compound_countain_rare_atom: continue
+
+		clean_suppl.append(mol)
+		smiles_list.append(Chem.MolToSmiles(mol))
+	return clean_suppl, smiles_list
+
+	
+
+# -----------------------------------
+# >>>     elemental functions     <<<
+# -----------------------------------
 def generate_ms(x, y, precursor_mz, resolution=1, max_mz=1500, charge=1): 
 	'''
 	Input:  x   [float list denotes the x-coordinate of peaks]
@@ -48,12 +194,16 @@ def generate_ms(x, y, precursor_mz, resolution=1, max_mz=1500, charge=1):
 
 	# normalize to 0-1
 	if np.max(ms) - np.min(ms) == 0: 
-		return ms
+		print('The maximum intensity and minimum intensity of this spectrum are the same!')
+		print('right bound', right_bound)
+		for i, j in zip(x, y):
+			print(i, j)
+		return False, np.array(ms)
 	ms = (ms - np.min(ms)) / (np.max(ms) - np.min(ms))
 
 	# smooth out large values
 	ms = np.sqrt(np.array(ms)) 
-	return ms
+	return True, ms
 
 def ce2nce(ce, precursor_mz, charge):
 	charge_factor = {1: 1, 2: 0.9, 3: 0.85, 4: 0.8, 5: 0.75, 6: 0.75, 7: 0.75, 8: 0.75}
@@ -76,7 +226,7 @@ def parse_collision_energy(ce_str, precursor_mz, charge=1):
 		r"^NCE=[\d]+[.]?[\d]*% [\d]+[.]?[\d]*eV$": lambda x: float(x.split()[1].rstrip("eV")),
 		r"^nce=[\d]+[.]?[\d]*% [\d]+[.]?[\d]*ev$": lambda x: float(x.split()[1].rstrip("ev")),
 		# MassBank
-		r"^[\d]+[.]?[\d]*[ ]?v$": lambda x: float(x.rstrip(" v")), 
+		r"^[\d]+[.]?[\d]*[ ]?V$": lambda x: float(x.rstrip(" V")), 
 		# r"^ramp [\d]+[.]?[\d]*-[\d]+[.]?[\d]* (ev|v)$":  lambda x: float((float(re.split(' |-', x)[1]) + float(re.split(' |-', x)[2])) /2), # j0siee: cannot process this ramp ce
 		r"^[\d]+[.]?[\d]*-[\d]+[.]?[\d]*$": lambda x: float((float(x.split('-')[0]) + float(x.split('-')[1])) /2), 
 		r"^hcd[\d]+[.]?[\d]*$": lambda x: float(x.lstrip('hcd')), 
@@ -92,18 +242,25 @@ def parse_collision_energy(ce_str, precursor_mz, charge=1):
 		r"^[\d]+[.]?[\d]*[ ]?nce$": lambda x: float(x.rstrip(' nce')), 
 		r"^[\d]+[.]?[\d]*[ ]?\(nce\)$": lambda x: float(x.rstrip(' (nce)')), 
 		r"^NCE=[\d]+\%$": lambda x: float(x.lstrip('NCE=').rstrip('%')), 
+		# casmi
+		r"^[\d]+[.]?[\d]*[ ]?\(nominal\)$": lambda x: float(x.rstrip("(nominal)").rstrip(' ')), 
 	}
 	for k, v in matches_nce.items(): 
 		if re.match(k, ce_str): 
 			nce = v(ce_str) * 0.01
 			break
+	
+	# unknown collision energy
+	if ce_str == 'Unknown': 
+		ce = 40
 
 	if nce == None and ce != None: 
 		nce = ce * 500 * charge_factor[charge] / precursor_mz
 	elif ce == None and nce != None:
 		ce = nce * precursor_mz / (500 * charge_factor[charge])
 	else:
-		raise Exception('Collision energy parse error: {}'.format(ce_str))
+		# raise Exception('Collision energy parse error: {}'.format(ce_str))
+		return None, None
 	return ce, nce
 
 def conformation_array(smiles, conf_type): 
@@ -165,8 +322,12 @@ def precursor_calculator(precursor_type, mass):
 		return mass - 1.007276
 	else:
 		raise ValueError('Unsupported precursor type: {}'.format(precursor_type))
-		return None
 
+
+
+# -----------------------------------
+# >>>  post-processing functions  <<<
+# -----------------------------------
 global CACTUS 
 CACTUS = "https://cactus.nci.nih.gov/chemical/structure/{0}/{1}"
 

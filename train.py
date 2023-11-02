@@ -32,7 +32,6 @@ def train_step(model, device, loader, optimizer, batch_size, num_points):
 			x = x.permute(0, 2, 1)
 			y = y.to(device=device, dtype=torch.float)
 			env = env.to(device=device, dtype=torch.float)
-			# print(x.size(), y.size(), env.size())
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			optimizer.zero_grad()
@@ -91,9 +90,9 @@ def init_random_seed(seed):
 
 if __name__ == "__main__": 
 	parser = argparse.ArgumentParser(description='Mass Spectrum Prediction (Train)')
-	parser.add_argument('--train_data', type=str, default='./data/agilent_qtof_etkdg_train.pkl',
+	parser.add_argument('--train_data', type=str, default='./data/qtof_etkdg_train.pkl',
 						help='path to training data (pkl)')
-	parser.add_argument('--test_data', type=str, default='./data/agilent_qtof_etkdg_test.pkl',
+	parser.add_argument('--test_data', type=str, default='./data/qtof_etkdg_test.pkl',
 						help='path to test data (pkl)')
 	parser.add_argument('--precursor_type', type=str, default='All', choices=['All', '[M+H]+', '[M-H]-'], 
                         help='Precursor type')
@@ -101,7 +100,7 @@ if __name__ == "__main__":
 						help='path to model and training configuration')
 	parser.add_argument('--data_config_path', type=str, default='./config/preprocess_etkdg.yml',
 						help='path to configuration')
-	parser.add_argument('--checkpoint_path', type=str, default = './check_point/molnet_agilent_qtof_etkdg.pt',
+	parser.add_argument('--checkpoint_path', type=str, default = './check_point/molnet_qtof_etkdg.pt',
 						help='Path to save checkpoint')
 	parser.add_argument('--resume_path', type=str, default='', 
 						help='Path to pretrained model')
@@ -114,7 +113,7 @@ if __name__ == "__main__":
 						help='Seed for random functions')
 	parser.add_argument('--device', type=int, default=0,
 						help='Which gpu to use if any')
-	parser.add_argument('--no_cuda', type=bool, default=False,
+	parser.add_argument('--no_cuda', action='store_true', 
 						help='Enables CUDA training')
 	args = parser.parse_args()
 

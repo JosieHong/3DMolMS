@@ -285,20 +285,23 @@ class MolNet_MS(nn.Module):
 
 
 
-# -----------------------------------
-# >>>          3DMol_REG          <<<
-#     (model for regression tasks)
-# -----------------------------------
-class MolNet_REG(nn.Module): 
+# -------------------------------------------------------------------------
+# >>>                             3DMol_Oth                             <<<
+# 1) This is the model for other tasks, including pretrain, retention time 
+# prediction, collision energy prediction...
+# 2) The difference between 3DMol_Oth and 3DMol_MS is the configuration 
+# parameters controlling output dimension. 
+# -------------------------------------------------------------------------
+class MolNet_Oth(nn.Module): 
 	def __init__(self, config): 
-		super(MolNet_REG, self).__init__()
+		super(MolNet_Oth, self).__init__()
 		
 		self.encoder = Encoder(in_dim=int(config['in_dim']), 
 									layers=config['encode_layers'],
 									emb_dim=int(config['emb_dim']), 
 									k=int(config['k']))
 		self.decoder = MSDecoder(in_dim=int(config['emb_dim']), 
-								layers=config['pretrain_decode_layers'], 
+								layers=config['decode_layers'], 
 								out_dim=1, 
 								dropout=config['dropout'])
 		
