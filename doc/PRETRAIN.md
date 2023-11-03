@@ -9,7 +9,7 @@ Step 1: Download the QM9 dataset [[here]](https://figshare.com/collections/Quant
 ```bash
 |- data
   |- qm9
-	  |- dsgdb9nsd.xyz.tar.bz2
+    |- dsgdb9nsd.xyz.tar.bz2
     |- dsC7O2H10nsd.xyz.tar.bz2
     |- uncharacterized.txt
 ```
@@ -36,5 +36,4 @@ python pretrain.py --train_data ./data/qm9_etkdgv3_train.pkl \
 |----------|------|--------|-----------|-------|---------|---------|
 | mu       | D    |  0.033 | 0.0297    | 0.012 | 0.0245  | 0.0065  |
 
-more results are coming soon...
 

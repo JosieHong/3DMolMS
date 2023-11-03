@@ -10,6 +10,8 @@ model:
   dropout: 0.2
   encode_layers: [64, 64, 128, 256, 512, 1024]
   decode_layers: [2048, 2048, 2048, 2048, 2048]
+  # decode_nce_layers: [2048, 512, 125, 1]
+  # decode_add_layers: [2048, 512, 125, 5]
 
 train:
   epochs: 200

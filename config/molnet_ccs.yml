@@ -1,9 +1,7 @@
 model:
   in_dim: 21
-  add_num: 0
+  add_num: 5
   max_atom_num: 300
-  resolution: 0.2
-  max_mz: 1500
   batch_size: 32
   emb_dim: 2048 
   k: 5
@@ -15,4 +13,4 @@ train:
   epochs: 200
   batch_size: 32
   num_workers: 0
-  lr: 0.001
+  lr: 0.0001

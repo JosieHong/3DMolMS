@@ -108,13 +108,8 @@ def filter_spec(spectra, config, type2charge):
 			if mslevel != config['ms_level']: continue
 
 		# Filter by atom number and atom type 
-		if len(mol.GetAtoms()) > config['max_atom_num'] or len(mol.GetAtoms()) < config['min_atom_num']: continue
-		is_compound_countain_rare_atom = False 
-		for atom in mol.GetAtoms(): 
-			if atom.GetSymbol() not in config['atom_type']:
-				is_compound_countain_rare_atom = True
-				break
-		if is_compound_countain_rare_atom: continue
+		if not check_atom(mol, config, in_type='molh'): 
+			continue
 
 		# Filter by precursor type
 		precursor_type = spectrum['params']['precursor_type']
@@ -140,19 +135,33 @@ def filter_mol(suppl, config):
 		mol = Chem.AddHs(mol)
 
 		# Filter by atom number and atom type 
-		if len(mol.GetAtoms()) > config['max_atom_num'] or len(mol.GetAtoms()) < config['min_atom_num']: continue
-		is_compound_countain_rare_atom = False 
-		for atom in mol.GetAtoms(): 
-			if atom.GetSymbol() not in config['atom_type']:
-				is_compound_countain_rare_atom = True
-				break
-		if is_compound_countain_rare_atom: continue
+		if not check_atom(mol, config, in_type='molh'): 
+			continue
 
 		clean_suppl.append(mol)
 		smiles_list.append(Chem.MolToSmiles(mol))
 	return clean_suppl, smiles_list
 
-	
+def check_atom(smiles, config, in_type='smiles'):
+	assert in_type in ['smiles', 'mol', 'molh']
+	if in_type == 'smiles': 
+		mol = Chem.AddHs(Chem.MolFromSmiles(smiles))
+	elif in_type == 'mol': 
+		mol = Chem.AddHs(mol)
+
+	if len(mol.GetAtoms()) > config['max_atom_num'] or len(mol.GetAtoms()) < config['min_atom_num']: 
+		return False
+
+	is_compound_countain_rare_atom = False 
+	for atom in mol.GetAtoms(): 
+		if atom.GetSymbol() not in config['atom_type']:
+			is_compound_countain_rare_atom = True
+			break
+	if is_compound_countain_rare_atom: 
+		return False
+	return True
+
+
 
 # -----------------------------------
 # >>>     elemental functions     <<<

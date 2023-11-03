@@ -33,7 +33,7 @@ def train_step(model, device, loader, optimizer, batch_size, num_points, prop_in
 
 			optimizer.zero_grad()
 			model.train()
-			pred = model(x, idx_base) 
+			pred = model(x, None, idx_base) 
 			loss = nn.MSELoss()(pred, y)
 			loss.backward()
 
@@ -58,7 +58,7 @@ def eval_step(model, device, loader, batch_size, num_points, prop_index):
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			with torch.no_grad(): 
-				pred = model(x, idx_base) 
+				pred = model(x, None, idx_base) 
 				
 			bar.set_description('Eval')
 			bar.update(1)

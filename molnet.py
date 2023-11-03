@@ -288,19 +288,19 @@ class MolNet_MS(nn.Module):
 # -------------------------------------------------------------------------
 # >>>                             3DMol_Oth                             <<<
 # 1) This is the model for other tasks, including pretrain, retention time 
-# prediction, collision energy prediction...
+# prediction, collision cross-section prediction...
 # 2) The difference between 3DMol_Oth and 3DMol_MS is the configuration 
 # parameters controlling output dimension. 
 # -------------------------------------------------------------------------
 class MolNet_Oth(nn.Module): 
 	def __init__(self, config): 
 		super(MolNet_Oth, self).__init__()
-		
+		self.add_num = config['add_num']
 		self.encoder = Encoder(in_dim=int(config['in_dim']), 
 									layers=config['encode_layers'],
 									emb_dim=int(config['emb_dim']), 
 									k=int(config['k']))
-		self.decoder = MSDecoder(in_dim=int(config['emb_dim']), 
+		self.decoder = MSDecoder(in_dim=int(config['emb_dim'] + config['add_num']), 
 								layers=config['decode_layers'], 
 								out_dim=1, 
 								dropout=config['dropout'])
@@ -317,6 +317,7 @@ class MolNet_Oth(nn.Module):
 					m.bias.data.zero_()
 
 	def forward(self, x: torch.Tensor, 
+						env: torch.Tensor, 
 						idx_base: torch.Tensor) -> torch.Tensor: 
 		'''
 		Input: 
@@ -325,6 +326,12 @@ class MolNet_Oth(nn.Module):
 			idx_base:   idx for local knn
 		'''
 		x = self.encoder(x, idx_base) # torch.Size([batch_size, emb_dim])
+
+		# add the encoded adduct
+		if self.add_num == 1:
+			x = torch.cat((x, torch.unsqueeze(env, 1)), 1)
+		elif self.add_num > 1:
+			x = torch.cat((x, env), 1)
 
 		# decoder
 		x = self.decoder(x)
