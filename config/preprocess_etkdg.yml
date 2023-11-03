@@ -29,18 +29,6 @@ nist_qtof:
   max_atom_num: 300
   min_atom_num: 10
 
-nist_hcd:
-  intrument_type: ['HCD']
-  instrument: ['Thermo Finnigan Velos Orbitrap', 'Thermo Finnigan Elite Orbitrap', 'Orbitrap Fusion Lumos']
-  ms_level: 'MS2'
-  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
-  precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
-  min_mz: 50
-  max_mz: 1500
-  min_peak_num: 5
-  max_atom_num: 300
-  min_atom_num: 10
-
 mona_qtof:
   intrument_type: ['LC-ESI-QTOF', 'Q-TOF', 'QTOF', 'LC-QTOF', 'LC-Q-TOF/MS', 'ESI-QTOF', 'Q-TOF', 'QTOF']
   ms_level: 'MS2'
@@ -55,41 +43,6 @@ mona_qtof:
 waters_qtof:
   intrument_type: ['QTOF']
   instrument: ['Waters QTOF']
-  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
-  precursor_type: ['[M+H]+', '[M-H]-']
-  min_mz: 50
-  max_mz: 1500
-  min_peak_num: 5
-  max_atom_num: 300
-  min_atom_num: 10
-
-casmi16: 
-  intrument_type: ['LC-ESI-QFT']
-  instrument: ['Q Exactive Plus Orbitrap Thermo Scientific']
-  ms_level: 'MS2'
-  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
-  precursor_type: ['[M+H]+', '[M-H]-']
-  min_mz: 50
-  max_mz: 1500
-  min_peak_num: 5
-  max_atom_num: 300
-  min_atom_num: 10
-
-casmi17:
-  intrument_type: ['LC-ESI-QTOF']
-  instrument: ['LC-ESI-QTOF']
-  ms_level: 'MS2'
-  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
-  precursor_type: ['[M+H]+', '[M-H]-']
-  min_mz: 50
-  max_mz: 1500
-  min_peak_num: 5
-  max_atom_num: 300
-  min_atom_num: 10
-
-casmi22:
-  intrument_type: ['Unknown']
-  ms_level: 'MS2'
   atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
   precursor_type: ['[M+H]+', '[M-H]-']
   min_mz: 50
