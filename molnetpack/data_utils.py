@@ -142,12 +142,14 @@ def filter_mol(suppl, config):
 		smiles_list.append(Chem.MolToSmiles(mol))
 	return clean_suppl, smiles_list
 
-def check_atom(smiles, config, in_type='smiles'):
+def check_atom(x, config, in_type='smiles'):
 	assert in_type in ['smiles', 'mol', 'molh']
 	if in_type == 'smiles': 
-		mol = Chem.AddHs(Chem.MolFromSmiles(smiles))
+		mol = Chem.AddHs(Chem.MolFromSmiles(x))
 	elif in_type == 'mol': 
-		mol = Chem.AddHs(mol)
+		mol = Chem.AddHs(x)
+	else:
+		mol = x
 
 	if len(mol.GetAtoms()) > config['max_atom_num'] or len(mol.GetAtoms()) < config['min_atom_num']: 
 		return False

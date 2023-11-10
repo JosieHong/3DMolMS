@@ -15,9 +15,22 @@ from rdkit.Chem import rdFingerprintGenerator
 from rdkit import DataStructs
 from rdkit.SimDivFilters.rdSimDivPickers import MaxMinPicker
 
-from data_utils import sdf2mgf, filter_spec, generate_ms, parse_collision_energy, conformation_array
+from molnetpack.data_utils import sdf2mgf, filter_spec, generate_ms, parse_collision_energy, conformation_array
 
 
+
+# def random_split(spectra, smiles_list, test_ratio=0.1):
+# 	test_smiles = np.random.choice(smiles_list, int(len(smiles_list)*test_ratio), replace=False)
+
+# 	train_spectra = []
+# 	test_spectra = []
+# 	for spectrum in spectra:
+# 		smiles = spectrum['params']['smiles'] 
+# 		if smiles in test_smiles:
+# 			test_spectra.append(spectrum)
+# 		else:
+# 			train_spectra.append(spectrum)
+# 	return test_spectra, train_spectra
 
 def spec2arr(spectra, encoder): 
 	'''data format

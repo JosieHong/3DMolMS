@@ -16,9 +16,9 @@ from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
 from rdkit.Chem import Descriptors
 
-from molnet import MolNet_MS
-from dataset import Mol_Dataset
-from data_utils import ce2nce, parse_collision_energy, conformation_array, precursor_calculator, generate_ms
+from molnetpack.molnet import MolNet_MS
+from molnetpack.dataset import Mol_Dataset
+from molnetpack.data_utils import ce2nce, parse_collision_energy, conformation_array, precursor_calculator, generate_ms
 
 global batch_size
 batch_size = 1

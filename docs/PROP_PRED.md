@@ -47,11 +47,17 @@ python train_rt.py --train_data ./data/metlin_etkdgv3_train.pkl \
 
 
 
-## Collision energy prediction
+## Cross-collision section prediction
 
 Please set up the environment as shown in step 0 from `README.md`. 
 
-Step 1: Download the cross-collision section dataset, [[AllCCS]](http://allccs.zhulab.cn/), manually or using `download_allccs.py`. The structure of data directory is: 
+Step 1: Download the cross-collision section dataset, [[AllCCS]](http://allccs.zhulab.cn/), manually or using `download_allccs.py`:
+
+```bash
+python download_allccs.py --user <your username> --passw <your password> --output ./data/origin/allccs_download.csv
+```
+
+The structure of data directory is: 
 
 ```bash
 |- data

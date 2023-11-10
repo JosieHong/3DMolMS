@@ -10,8 +10,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from molnet import MolNet_MS
-from dataset import MolMS_Dataset
+from molnetpack.molnet import MolNet_MS
+from molnetpack.dataset import MolMS_Dataset
 
 def get_lr(optimizer):
 	for param_group in optimizer.param_groups:
