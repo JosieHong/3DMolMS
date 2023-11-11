@@ -1,4 +1,4 @@
-lxml==4.8.0
+lxml==4.9.1
 numpy==1.21.5
 pyteomics==4.5.3
 tqdm==4.64.0
