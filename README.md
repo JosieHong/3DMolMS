@@ -14,7 +14,7 @@
 
 - 2023.10.22 (v1.02): pretrain on QM9-mu dataset + ETKDG algprithm. We establish a dataset from QM9-mu (dipole moment) with the generated conformations using ETKDG for pretraining 3DMolMS. It helps the model learning knowledge of molecular 3D conformations and pretraining enhances the performance on MS/MS slightly (~0.01 cosine similarity). 
 
-- 2023.09.14 (v1.01): data augmentation by flipping atomic coordinates. Notably, this model is sensitive to the geometric structure of molecules. For tasks insensitive to geometric structure, e.g. mass spectrometry is chirally blind, please use data augmentation. However, for the tasks sesitive to geometric structure, e.g. different enantiomers with varying retention times, avoid data augmentation. 
+- 2023.09.14 (v1.01): data augmentation by flipping atomic coordinates. Notably, this model is sensitive to the geometric structure of molecules. For tasks insensitive to geometric structure, e.g. mass spectrometry is chirally blind, please use data augmentation. However, for the tasks sensitive to geometric structure, e.g. different enantiomers with varying retention times, avoid data augmentation. 
 
 - 2023.06.30 (v1.00): initial version. 
 
@@ -65,13 +65,6 @@ Step 2: Download the model weights (`molnet_qtof_etkdgv3.pt.zip`) from [Google D
 Step 3: Test the model by the following commands: 
 
 ```bash
-python pred.py --test_data <path to test data (.csv, .mgf, or .pkl)> \
---model_config_path ./config/molnet.yml \
---data_config_path ./config/preprocess_etkdgv3.yml \
---resume_path <path to pretrained model> \
---result_path <path to save the results (.csv or .mgf file)> 
-
-# e.g.
 python pred.py --test_data ./demo/demo_input.csv \
 --model_config_path ./config/molnet.yml \
 --data_config_path ./config/preprocess_etkdgv3.yml \
@@ -85,7 +78,7 @@ python pred.py --test_data ./demo/demo_input.csv \
 
 Please set up the environment as shown in step 0 from the above section. 
 
-Step 1: Download the pretrained model (`molnet_pre_etkdgv3.pt.zip`) from [Google Drive](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link) or pretrain the model by yourself. The details of pretraining the model on [QM9](https://figshare.com/collections/Quantum_chemistry_structures_and_properties_of_134_kilo_molecules/978904)-mu are demonstrated at `./docs/PRETRAIN.md`. 
+Step 1: Download the pretrained model (`molnet_pre_etkdgv3.pt.zip`) from [Google Drive](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link) or pretrain the model by yourself. The details of pretraining the model on [QM9](https://figshare.com/collections/Quantum_chemistry_structures_and_properties_of_134_kilo_molecules/978904)-mu are demonstrated at [./docs/PRETRAIN.md](https://github.com/JosieHong/3DMolMS/blob/main/docs/PRETRAIN.md). 
 
 Step 2: Gather the datasets separately, unzip and put them in `./data/`. In the latest version, we use 4 datasets to train the model: (1) Agilent DPCL is provided by [Agilent Technologies](https://www.agilent.com/). (2) [NIST20](https://www.nist.gov/programs-projects/nist23-updates-nist-tandem-and-electron-ionization-spectral-libraries) is academically available with a License. (3) [MoNA](https://mona.fiehnlab.ucdavis.edu/downloads) is publicly available. (4) Waters QTOF is our own experimental dataset. The structure of data directory is: 
 
@@ -117,7 +110,7 @@ python train.py --train_data ./data/qtof_etkdgv3_train.pkl \
 --resume_path ./check_point/molnet_pre_etkdgv3.pt
 ```
 
-In addition, we give the retention time prediction and cross-collision section prediction as two examples of molecular properties prediciton. Please see the details in `./docs/PROP_PRED.md`. 
+In addition, 3DMolMS can be used in molecular properties prediction and generating refer libraries for molecular identification. We give the retention time prediction and cross-collision section prediction as two examples of molecular properties prediction. Please see the details in [./docs/PROP_PRED.md](https://github.com/JosieHong/3DMolMS/blob/main/docs/PROP_PRED.md). The examples of generating refer libraries can be found in [./docs/GEN_REFER_LIB.md](https://github.com/JosieHong/3DMolMS/blob/main/docs/GEN_REFER_LIB.md). 
 
 
 
