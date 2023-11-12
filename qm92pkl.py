@@ -1,8 +1,3 @@
-'''
-Date: 2023-10-20 14:24:33
-LastEditors: yuhhong
-LastEditTime: 2023-10-20 17:09:24
-'''
 import os
 import argparse
 import yaml

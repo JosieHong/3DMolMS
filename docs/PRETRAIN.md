@@ -36,4 +36,5 @@ python pretrain.py --train_data ./data/qm9_etkdgv3_train.pkl \
 |----------|------|--------|-----------|-------|---------|---------|
 | mu       | D    |  0.033 | 0.0297    | 0.012 | 0.0245  | 0.0065  |
 
+more results are coming soon...
 

@@ -1,8 +1,3 @@
-'''
-Date: 2023-10-20 15:52:59
-LastEditors: yuhhong
-LastEditTime: 2023-10-20 17:16:07
-'''
 import os
 import argparse
 import numpy as np
@@ -14,8 +9,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from molnetpack.molnet import MolNet_Oth
-from molnetpack.dataset import MolPRE_Dataset
+from molmspack.molnet import MolNet_Oth
+from molmspack.dataset import MolPRE_Dataset
 
 def get_lr(optimizer):
 	for param_group in optimizer.param_groups:
@@ -75,7 +70,7 @@ def init_random_seed(seed):
 
 
 if __name__ == "__main__": 
-	parser = argparse.ArgumentParser(description='Mass Spectrum Prediction (Train)')
+	parser = argparse.ArgumentParser(description='Molecular Mass Spectra Prediction (Pre-train)')
 	parser.add_argument('--train_data', type=str, default='./data/qm9_etkdg_train.pkl',
 						help='path to training data (pkl)')
 	parser.add_argument('--test_data', type=str, default='./data/qm9_etkdg_test.pkl',

@@ -14,8 +14,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from molnetpack.molnet import MolNet_Oth
-from molnetpack.dataset import MolRT_Dataset
+from molmspack.molnet import MolNet_Oth
+from molmspack.dataset import MolRT_Dataset
 
 def get_lr(optimizer):
 	for param_group in optimizer.param_groups:
@@ -75,7 +75,7 @@ def init_random_seed(seed):
 
 
 if __name__ == "__main__": 
-	parser = argparse.ArgumentParser(description='Mass Spectrum Prediction (Train)')
+	parser = argparse.ArgumentParser(description='Molecular Retention Time Prediction (Train)')
 	parser.add_argument('--train_data', type=str, default='./data/metlin_etkdgv3_train.pkl',
 						help='path to training data (pkl)')
 	parser.add_argument('--test_data', type=str, default='./data/metlin_etkdgv3_test.pkl',

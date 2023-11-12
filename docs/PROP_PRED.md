@@ -1,8 +1,3 @@
-<!--
- * @Date: 2023-10-03 17:36:39
- * @LastEditors: yuhhong
- * @LastEditTime: 2023-10-06 11:51:32
--->
 # Molecular Properties Prediction using 3DMolMS
 
 

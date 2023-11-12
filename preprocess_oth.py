@@ -1,8 +1,3 @@
-'''
-Date: 2023-10-03 17:20:52
-LastEditors: yuhhong
-LastEditTime: 2023-10-03 21:38:03
-'''
 import os
 import argparse
 import yaml
@@ -16,7 +11,7 @@ from rdkit import Chem
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
 
-from molnetpack.data_utils import conformation_array, filter_mol, check_atom
+from molmspack.data_utils import conformation_array, filter_mol, check_atom
 
 
 

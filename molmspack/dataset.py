@@ -115,7 +115,6 @@ class MolPRE_Dataset(Dataset):
 		return len(self.data)
 
 	def __getitem__(self, idx): 
-		# print(self.data[idx])
 		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['y']
 	
 	

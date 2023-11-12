@@ -1,3 +1,4 @@
+# public exp ===========================================================
 qm9:
   atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
   min_molmass: 50
@@ -62,6 +63,19 @@ allccs:
   min_atom_num: 10
   precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
 
+hmdb: 
+  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
+  max_atom_num: 300
+  min_atom_num: 10
+  precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
+
+refmet:
+  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
+  max_atom_num: 300
+  min_atom_num: 10
+  precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
+
+# encoding ===========================================================
 encoding:
   resolution: 0.2
   max_mz: 1500

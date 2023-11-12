@@ -15,68 +15,7 @@ from rdkit.Chem import rdFingerprintGenerator
 from rdkit import DataStructs
 from rdkit.SimDivFilters.rdSimDivPickers import MaxMinPicker
 
-from molnetpack.data_utils import sdf2mgf, filter_spec, generate_ms, parse_collision_energy, conformation_array
-
-
-
-# def random_split(spectra, smiles_list, test_ratio=0.1):
-# 	test_smiles = np.random.choice(smiles_list, int(len(smiles_list)*test_ratio), replace=False)
-
-# 	train_spectra = []
-# 	test_spectra = []
-# 	for spectrum in spectra:
-# 		smiles = spectrum['params']['smiles'] 
-# 		if smiles in test_smiles:
-# 			test_spectra.append(spectrum)
-# 		else:
-# 			train_spectra.append(spectrum)
-# 	return test_spectra, train_spectra
-
-def spec2arr(spectra, encoder): 
-	'''data format
-	[
-		{'title': <str>, 'mol': <numpy array>, 'env': <numpy array>, 'spec': <numpy array>}, 
-		{'title': <str>, 'mol': <numpy array>, 'env': <numpy array>, 'spec': <numpy array>}, 
-		....
-	]
-	'''
-	data = []
-	for idx, spectrum in enumerate(tqdm(spectra)): 
-		# mol array
-		good_conf, xyz_arr, atom_type = conformation_array(smiles=spectrum['params']['smiles'], 
-															conf_type=encoder['conf_type']) 
-		# There are some limitations of conformation generation methods. 
-		# e.g. https://github.com/rdkit/rdkit/issues/5145
-		# Let's skip the unsolvable molecules. 
-		if not good_conf: 
-			continue
-		atom_type_one_hot = np.array([encoder['atom_type'][atom] for atom in atom_type])
-		assert xyz_arr.shape[0] == atom_type_one_hot.shape[0]
-
-		mol_arr = np.concatenate([xyz_arr, atom_type_one_hot], axis=1)
-		mol_arr = np.pad(mol_arr, ((0, encoder['max_atom_num']-xyz_arr.shape[0]), (0, 0)), constant_values=0)
-		
-		# spec array
-		good_spec, spec_arr = generate_ms(x=spectrum['m/z array'], 
-								y=spectrum['intensity array'], 
-								precursor_mz=float(spectrum['params']['precursor_mz']), 
-								resolution=encoder['resolution'], 
-								max_mz=encoder['max_mz'], 
-								charge=int(encoder['type2charge'][spectrum['params']['precursor_type']]))
-		if not good_spec: # after binning, some spectra do not have enough peaks' number
-			continue
-
-		# env array
-		ce, nce = parse_collision_energy(ce_str=spectrum['params']['collision_energy'], 
-								precursor_mz=float(spectrum['params']['precursor_mz']), 
-								charge=int(encoder['type2charge'][spectrum['params']['precursor_type']]))
-		if ce == None and nce == None:
-			continue
-		precursor_type_one_hot = encoder['precursor_type'][spectrum['params']['precursor_type']]
-		env_arr = np.array([nce] + precursor_type_one_hot)
-
-		data.append({'title': spectrum['params']['title'], 'mol': mol_arr, 'spec': spec_arr, 'env': env_arr})
-	return data
+from molmspack.data_utils import sdf2mgf, filter_spec, mgf2pkl
 
 
 
@@ -188,13 +127,13 @@ if __name__ == "__main__":
 
 		print('({}) Convert spectra and molecules data into arrays...'.format(ins))
 		# test
-		test_data = spec2arr(test_spectra, config['encoding'])
+		test_data = mgf2pkl(test_spectra, config['encoding'])
 		out_path = os.path.join(args.pkl_dir, '{}_{}_test.pkl'.format(ins, config['encoding']['conf_type']))
 		with open(out_path, 'wb') as f: 
 			pickle.dump(test_data, f)
 			print('Save {}'.format(out_path))
 		# train
-		train_data = spec2arr(train_spectra, config['encoding'])
+		train_data = mgf2pkl(train_spectra, config['encoding'])
 		out_path = os.path.join(args.pkl_dir, '{}_{}_train.pkl'.format(ins, config['encoding']['conf_type']))
 		with open(out_path, 'wb') as f: 
 			pickle.dump(train_data, f)
