@@ -1,14 +1,11 @@
 import numpy as np
-import re
-from decimal import *
-import requests
 from tqdm import tqdm
 
 from rdkit import Chem
 # ignore the warning
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
-from rdkit.Chem import AllChem
+from rdkit.Chem import Descriptors
 
 from .utils import conformation_array, precursor_calculator, parse_collision_energy, generate_ms
 

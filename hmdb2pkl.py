@@ -35,23 +35,34 @@ if __name__ == "__main__":
 	supp = Chem.SDMolSupplier(os.path.join(args.raw_dir, 'structures.sdf'))
 	print('Read {} data from {}'.format(len(supp), os.path.join(args.raw_dir, 'structures.sdf')))
 
-	# filter the molecules 
-	supp, _ = filter_mol(supp, config['hmdb'])
-	print('Filter to get {} molecules'.format(len(supp)))
+	# split the HMDB by chunks
+	chunk_size = 10000
+	chunk_num = len(supp) // chunk_size
+	chunk_num = chunk_num + 1 if len(supp) % chunk_size > 0 else chunk_num
+	print('Processing HMDB by chunks: # chunk size: {}, # chunk number: {}'.format(chunk_size, chunk_num))
+	
+	for i in range(chunk_num):
+		if (i+1)*chunk_size <= len(supp): 
+			supp_tmp = [supp[j] for j in range(i*chunk_size, (i+1)*chunk_size)]
+		else:
+			supp_tmp = [supp[j] for j in range(i*chunk_size, len(supp))]
 
-	# convert data to pkl (with multiple meta data)
-	# ID,SMILES,Precursor_Type,Source_Instrument,Collision_Energy
-	collision_energies = ['20 eV', '40 eV']
-	precursor_types = ['[M+H]+', '[M-H]-']
-	hmdb_pkl = sdf2pkl_with_cond(supp, 
-								config['encoding'], 
-								collision_energies, 
-								precursor_types)
+		# filter the molecules 
+		supp_tmp, _ = filter_mol(supp_tmp, config['hmdb'])
+		print('(Chunk {}) Filter to get {} molecules'.format(i, len(supp_tmp)))
 
-	# save
-	out_path = os.path.join(args.pkl_dir, 'hmdb_{}.pkl'.format(config['encoding']['conf_type']))
-	with open(out_path, 'wb') as f: 
-		pickle.dump(hmdb_pkl, f)
-		print('Save {}'.format(out_path))
+		# convert data to pkl (with multiple meta data)
+		collision_energies = ['20 eV', '40 eV']
+		precursor_types = ['[M+H]+', '[M-H]-']
+		hmdb_pkl_tmp = sdf2pkl_with_cond(supp_tmp, 
+									config['encoding'], 
+									collision_energies, 
+									precursor_types)
+
+		# save
+		out_path = os.path.join(args.pkl_dir, 'hmdb_{}_{}.pkl'.format(config['encoding']['conf_type'], i))
+		with open(out_path, 'wb') as f: 
+			pickle.dump(hmdb_pkl_tmp, f)
+			print('Save {}'.format(out_path))
 	
 	print('Done!')
