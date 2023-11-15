@@ -46,8 +46,7 @@ if __name__ == "__main__":
 	if 'nist' in args.dataset:
 		assert os.path.exists(os.path.join(args.raw_dir, 'hr_msms_nist.SDF'))
 	if 'mona' in args.dataset:
-		# assert os.path.exists(os.path.join(args.raw_dir, 'MoNA-export-All_LC-MS-MS_QTOF.sdf'))
-		assert os.path.exists(os.path.join(args.raw_dir, 'MoNA-export-All_LC-MS-MS_Agilent_QTOF.sdf'))
+		assert os.path.exists(os.path.join(args.raw_dir, 'MoNA-export-All_LC-MS-MS_QTOF.sdf'))
 	if 'waters' in args.dataset:
 		assert os.path.exists(os.path.join(args.raw_dir, 'waters_qtof.mgf'))
 	
