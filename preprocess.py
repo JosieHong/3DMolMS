@@ -10,9 +10,7 @@ from rdkit import Chem
 # ignore the warning
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
-from rdkit.Chem import AllChem
 from rdkit.Chem import rdFingerprintGenerator
-from rdkit import DataStructs
 from rdkit.SimDivFilters.rdSimDivPickers import MaxMinPicker
 
 from molmspack.data_utils import sdf2mgf, filter_spec, mgf2pkl

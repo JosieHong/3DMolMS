@@ -1,15 +1,12 @@
 import os
 import argparse
 import yaml
-from tqdm import tqdm
-import numpy as np
 import pickle
 
 from rdkit import Chem
 # ignore the warning
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
-from rdkit.Chem import Descriptors
 
 from molmspack.data_utils import filter_mol, sdf2pkl_with_cond
 
