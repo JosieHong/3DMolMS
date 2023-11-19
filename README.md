@@ -40,15 +40,15 @@ pip install -r requirements.txt
 Step 1: Generate custom test data. If you already have test data, please convert it into a supported format, e.g. csv, mgf or pkl. Here is an input example of csv format (`./demo_input.csv`): 
 
 ```
-ID,SMILES,Precursor_Type,Source_Instrument,Collision_Energy,Charge
-0,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,QTOF,20,1
-1,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,QTOF,40,1
-2,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,QTOF,20,1
-3,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,QTOF,40,1
-4,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,QTOF,20,1
-5,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,QTOF,40,1
-6,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M-H]-,QTOF,20,1
-7,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M-H]-,QTOF,40,1
+ID,SMILES,Precursor_Type,Collision_Energy,Charge
+0,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,20,1
+1,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,40,1
+2,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,20,1
+3,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,40,1
+4,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,20,1
+5,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,40,1
+6,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M-H]-,20,1
+7,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M-H]-,40,1
 ```
 
 Please notice that the unsupported input will be filtered out automatically when loading the dataset. The supported inputs are shown in the following table. 
@@ -92,10 +92,10 @@ Step 2: Gather the datasets separately, unzip and put them in `./data/`. In the 
     |- waters_qtof.mgf
 ```
 
-Step 3: Use the following commands to preprocess the datasets. Please input the dataset you use at `--dataset` and choose the instrument type in `qtof` and `hcd`. `--maxmin_pick` means using the MaxMin algorithm in picking training molecules, otherwise, the random choice is applied. The settings of datasets are in `./preprocess_etkdgv3.yml`. 
+Step 3: Use the following commands to preprocess the datasets. Please input the dataset you use at `--dataset` and choose the instrument type in `qtof` and `orbitrap`. `--maxmin_pick` means using the MaxMin algorithm in picking training molecules, otherwise, the random choice is applied. The settings of datasets are in `./preprocess_etkdgv3.yml`. 
 
 ```bash
-python preprocess.py --dataset agilent nist mona waters --instrument_type qtof --data_config_path ./config/preprocess_etkdgv3.yml
+python preprocess.py --dataset agilent nist mona waters --instrument_type qtof --data_config_path ./config/preprocess_etkdgv3.yml --mgf_dir ./data/mgf_debug/
 ```
 
 Step 4: Use the following commands to train the model. The settings of model and training are in `./config/molnet.yml`. 

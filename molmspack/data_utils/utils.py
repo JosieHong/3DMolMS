@@ -81,6 +81,7 @@ def parse_collision_energy(ce_str, precursor_mz, charge=1):
 		r"^[\d]+[.]?[\d]*[ ]?eV$": lambda x: float(x.rstrip(" eV")), 
 		r"^[\d]+[.]?[\d]*[ ]?ev$": lambda x: float(x.rstrip(" ev")), 
 		r"^[\d]+[.]?[\d]*[ ]?v$": lambda x: float(x.rstrip(" v")), 
+		r"^[\d]+[.]?[\d]*[ ]?V$": lambda x: float(x.rstrip(" V")), 
 		r"^NCE=[\d]+[.]?[\d]*% [\d]+[.]?[\d]*eV$": lambda x: float(x.split()[1].rstrip("eV")),
 		r"^nce=[\d]+[.]?[\d]*% [\d]+[.]?[\d]*ev$": lambda x: float(x.split()[1].rstrip("ev")),
 		# MassBank

@@ -27,7 +27,7 @@ if __name__ == "__main__":
 						help='path to mgf data') # output mgf file for debuging and data analysis
 	parser.add_argument('--dataset', type=str, nargs='+', required=True, choices=['agilent', 'nist', 'mona', 'waters'], 
 						help='dataset name')
-	parser.add_argument('--instrument_type', type=str, nargs='+', required=True, choices=['qtof', 'hcd'], 
+	parser.add_argument('--instrument_type', type=str, nargs='+', required=True, choices=['qtof', 'orbitrap'], 
 						help='dataset name')
 	parser.add_argument('--train_ratio', type=float, default=0.9,
 						help='Ratio for train set')
