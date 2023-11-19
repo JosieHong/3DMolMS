@@ -39,6 +39,11 @@ if __name__ == "__main__":
 	print('Processing HMDB by chunks: # chunk size: {}, # chunk number: {}'.format(chunk_size, chunk_num))
 	
 	for i in range(chunk_num):
+		out_path = os.path.join(args.pkl_dir, 'hmdb_{}_{}.pkl'.format(config['encoding']['conf_type'], i))
+		if os.path.exists(out_path):
+			print('skip chunk {}'.format(i))
+			continue
+
 		if (i+1)*chunk_size <= len(supp): 
 			supp_tmp = [supp[j] for j in range(i*chunk_size, (i+1)*chunk_size)]
 		else:
@@ -57,7 +62,6 @@ if __name__ == "__main__":
 									precursor_types)
 
 		# save
-		out_path = os.path.join(args.pkl_dir, 'hmdb_{}_{}.pkl'.format(config['encoding']['conf_type'], i))
 		with open(out_path, 'wb') as f: 
 			pickle.dump(hmdb_pkl_tmp, f)
 			print('Save {}'.format(out_path))

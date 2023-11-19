@@ -23,6 +23,8 @@ if __name__ == "__main__":
 						help='path to raw data')
 	parser.add_argument('--pkl_dir', type=str, default='./data/',
 						help='path to pkl data')
+	parser.add_argument('--mgf_dir', type=str, default='',
+						help='path to mgf data') # output mgf file for debuging and data analysis
 	parser.add_argument('--dataset', type=str, nargs='+', required=True, choices=['agilent', 'nist', 'mona', 'waters'], 
 						help='dataset name')
 	parser.add_argument('--instrument_type', type=str, nargs='+', required=True, choices=['qtof', 'hcd'], 
@@ -92,6 +94,10 @@ if __name__ == "__main__":
 			del filter_spectra, filter_smiles_list
 		smiles_list = list(set(smiles_list))
 		
+		# save mgf for debuging
+		if args.mgf_dir != '':
+			mgf.write(spectra, output=os.path.join(args.mgf_dir, '{}_{}.mgf'.format(ins, '_'.join(args.dataset))))
+
 		if args.maxmin_pick: 
 			print('({}) Split training and test set by MaxMin algorithm...'.format(ins))
 			# maxmin algorithm picking training smiles (Since the training set so far is not large enough, 

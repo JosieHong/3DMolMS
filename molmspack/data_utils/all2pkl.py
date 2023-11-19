@@ -1,5 +1,6 @@
 import numpy as np
 from tqdm import tqdm
+from pyteomics import mgf
 
 from rdkit import Chem
 # ignore the warning
@@ -110,20 +111,20 @@ def csv2pkl_wfilter(csv_path, encoder):
 		mol_arr = np.pad(mol_arr, ((0, encoder['max_atom_num']-xyz_arr.shape[0]), (0, 0)), constant_values=0)
 		
 		# env array
+		if row['Precursor_Type'] not in encoder['precursor_type'].keys(): # filter 4
+			print('Unsupported precusor type: {}'.format(row['Precursor_Type']))
+			continue
 		precursor_mz = precursor_calculator(row['Precursor_Type'], mass=Descriptors.MolWt(Chem.MolFromSmiles(row['SMILES'])))
 		nce = ce2nce(ce=row['Collision_Energy'], 
 						precursor_mz=precursor_mz, 
 						charge=row['Charge'])
-		if row['Precursor_Type'] not in encoder['precursor_type'].keys(): # filter 4
-			print('Unsupported precusor type: {}'.format(row['Precursor_Type']))
-			continue
 		precursor_type_one_hot = encoder['precursor_type'][row['Precursor_Type']]
 		env_arr = np.array([nce] + precursor_type_one_hot)
 
 		data.append({'title': row['ID'], 'smiles': row['SMILES'], 'mol': mol_arr, 'env': env_arr})
 	return data
 
-def mgf2pkl_wfilter(mgf_path, encoder, with_spec=False): 
+def mgf2pkl_wfilter(mgf_path, encoder): 
 	supp = mgf.read(mgf_path)
 	data = []
 	for idx, spec in enumerate(tqdm(supp)): 
@@ -155,11 +156,14 @@ def mgf2pkl_wfilter(mgf_path, encoder, with_spec=False):
 		mol_arr = np.pad(mol_arr, ((0, encoder['max_atom_num']-xyz_arr.shape[0]), (0, 0)), constant_values=0)
 
 		# env array
+		if spec['params']['precursor_type'] not in encoder['precursor_type'].keys(): # filter 4
+			print('Unsupported precusor type: {}'.format(spec['params']['precursor_type']))
+			continue
 		if 'charge' not in spec['params'].keys(): 
 			print('Empty charge. We will assume it as charge 1.')
 			charge = 1
 		elif isinstance(spec['params']['charge'], list): # convert pyteomics.auxiliary.structures.ChargeList to int
-			charge = int(spec['params']['charge'][0])
+			charge = abs(int(spec['params']['charge'][0]))
 		precursor_mz = precursor_calculator(spec['params']['precursor_type'], 
 											mass=Descriptors.MolWt(Chem.MolFromSmiles(spec['params']['smiles'])))
 		ce, nce = parse_collision_energy(ce_str=spec['params']['collision_energy'], 
@@ -168,9 +172,7 @@ def mgf2pkl_wfilter(mgf_path, encoder, with_spec=False):
 		if ce == None and nce == None:
 			print('Unsupported collision energy: {}'.format(spec['params']['collision_energy']))
 			continue
-		if spec['params']['precursor_type'] not in encoder['precursor_type'].keys(): # filter 4
-			print('Unsupported precusor type: {}'.format(spec['params']['precursor_type']))
-			continue
+		
 		precursor_type_one_hot = encoder['precursor_type'][spec['params']['precursor_type']]
 		env_arr = np.array([nce] + precursor_type_one_hot)
 

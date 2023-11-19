@@ -1,5 +1,6 @@
 import numpy as np
 from tqdm import tqdm
+from pyteomics import mgf
 
 from rdkit import Chem
 # ignore the warning
