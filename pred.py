@@ -118,7 +118,7 @@ if __name__ == "__main__":
 	if args.save_pkl: # you may want to same the pkl so do not need to convert it again next time
 		out_path = args.test_data.replace('.'+test_format, '_wo_spec.pkl')
 		with open(out_path, 'wb') as f: 
-			pickle.dump(data, f)
+			pickle.dump(pkl_dict, f)
 			print('Save converted pkl file to {}'.format(out_path))
 
 	valid_set = Mol_Dataset(pkl_dict)
