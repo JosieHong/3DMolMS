@@ -23,11 +23,11 @@ python hmdb2pkl.py --data_config_path ./config/preprocess_etkdgv3.yml
 Step 3: Use the following commands to generate MS/MS. The settings of model are in `./config/molnet.yml`. 
 
 ```bash
-python pred.py --test_data ./data/hmdb/hmdb_etkdgv3.pkl \
+for i in {0..21}; do echo $i; python pred.py --test_data ./data/hmdb/hmdb_etkdgv3_$i.pkl \
 --model_config_path ./config/molnet.yml \
 --data_config_path ./config/preprocess_etkdgv3.yml \
 --resume_path ./check_point/molnet_qtof_etkdgv3.pt \
---result_path ./data/hmdb/molnet_v1.1_hmdb_etkdgv3.mgf
+--result_path ./data/hmdb/molnet_v1.1_hmdb_etkdgv3_$1.mgf; done;
 ```
 
 ## Using molecules from RefMet
