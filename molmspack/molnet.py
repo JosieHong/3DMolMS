@@ -185,7 +185,7 @@ class FCResBlock(nn.Module):
             if isinstance(m, (nn.Conv1d, nn.Conv2d, nn.Linear)):
                 nn.init.kaiming_normal_(m.weight, a=0.2, mode='fan_in', nonlinearity='leaky_relu')
             
-            elif isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.GroupNorm)): 
+            elif isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.GroupNorm, nn.LayerNorm)): 
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
