@@ -1,6 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 from pyteomics import mgf
+import pandas as pd
 
 from rdkit import Chem
 # ignore the warning
@@ -8,7 +9,7 @@ from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
 from rdkit.Chem import Descriptors
 
-from .utils import conformation_array, precursor_calculator, parse_collision_energy, generate_ms
+from .utils import conformation_array, precursor_calculator, parse_collision_energy, generate_ms, ce2nce
 
 
 
