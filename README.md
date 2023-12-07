@@ -37,18 +37,16 @@ conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 pip install -r requirements.txt
 ```
 
-Step 1: Generate custom test data. If you already have test data, please convert it into a supported format, e.g. csv, mgf or pkl. Here is an input example of csv format (`./demo_input.csv`): 
+Step 1: Generate custom test data. If you already have test data, please convert it into a supported format, i.e. csv, mgf, or [customed pkl](https://github.com/JosieHong/3DMolMS/blob/main/molmspack/data_utils/all2pkl.py). Here is an input example of csv format (`./demo_input.csv`): 
 
 ```
-ID,SMILES,Precursor_Type,Collision_Energy,Charge
-0,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,20,1
-1,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,40,1
-2,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,20,1
-3,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,40,1
-4,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,20,1
-5,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,40,1
-6,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M-H]-,20,1
-7,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M-H]-,40,1
+ID,SMILES,Precursor_Type,Collision_Energy
+demo_0,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,20
+demo_1,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,40
+demo_2,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,20
+demo_3,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,40
+demo_4,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,20
+demo_5,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,40
 ```
 
 Please notice that the unsupported input will be filtered out automatically when loading the dataset. The supported inputs are shown in the following table. 
@@ -62,7 +60,9 @@ Please notice that the unsupported input will be filtered out automatically when
 
 Step 2: Download the model weights (`molnet_qtof_etkdgv3.pt.zip`) from [Google Drive](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link). If you have trained your own model, please ignore this step. 
 
-Step 3: Test the model by the following commands: 
+Step 3: Predict the MS/MS or evaluate 3DMolMS. 
+
+IF you want to use 3DMolMS on certain molecules that do not know the experimental MS/MS, please use the following commands: 
 
 ```bash
 python pred.py --test_data ./demo/demo_input.csv \
@@ -70,6 +70,15 @@ python pred.py --test_data ./demo/demo_input.csv \
 --data_config_path ./config/preprocess_etkdgv3.yml \
 --resume_path ./check_point/molnet_qtof_etkdgv3.pt \
 --result_path ./demo/demo_output.csv
+```
+
+IF you have the experimental MS/MS and want to evaluate 3DMolMS, please use the following command: 
+
+```bash
+python eval.py --test_data ./demo/demo_input.mgf \
+--model_config_path ./config/molnet.yml \
+--data_config_path ./config/preprocess_etkdgv3.yml \
+--resume_path ./check_point/molnet_qtof_etkdgv3.pt
 ```
 
 

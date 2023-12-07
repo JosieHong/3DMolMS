@@ -23,8 +23,9 @@ def filter_spec(spectra, config, type2charge):
 			continue
 
 		# Filter by instrument type
-		instrument_type = spectrum['params']['instrument_type']
-		if instrument_type not in config['intrument_type']: continue
+		if 'instrument_type' in config.keys(): 
+			instrument_type = spectrum['params']['instrument_type']
+			if instrument_type not in config['intrument_type']: continue
 
 		# Filter by instrument (MoNA contains too many intrument names to filter out)
 		if 'instrument' in config.keys(): 

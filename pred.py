@@ -18,7 +18,8 @@ from rdkit.Chem import Descriptors
 
 from molmspack.molnet import MolNet_MS
 from molmspack.dataset import Mol_Dataset
-from molmspack.data_utils import csv2pkl_wfilter, mgf2pkl_wfilter, nce2ce, precursor_calculator
+from molmspack.data_utils import csv2pkl_wfilter, nce2ce, precursor_calculator
+from molmspack.data_utils import filter_spec, mgf2pkl
 
 global batch_size
 batch_size = 1
@@ -107,19 +108,33 @@ if __name__ == "__main__":
 	test_format = args.test_data.split('.')[-1]
 	if test_format == 'csv': # convert csv file into pkl 
 		pkl_dict = csv2pkl_wfilter(args.test_data, data_config['encoding'])
+
 	elif test_format == 'mgf': # convert mgf file into pkl 
-		pkl_dict = mgf2pkl_wfilter(args.test_data, data_config['encoding']) 
+		origin_spectra = mgf.read(args.test_data)
+		
+		print('Filter spectra...')
+		filter_spectra, _ = filter_spec(origin_spectra, 
+										config['all'], 
+										type2charge=config['encoding']['type2charge'])
+		pkl_dict = mgf2pkl(filter_spectra, config['encoding'])
+
 	elif test_format == 'pkl': # load pkl directly
 		with open(args.test_data, 'rb') as file: 
 			pkl_dict = pickle.load(file)
+
 	else: 
 		raise ValueError('Unsupported format: {}'.format(test_format))
+	print('Load {} data from {}'.format(len(pkl_dict), args.test_data))
 
-	if args.save_pkl: # you may want to same the pkl so do not need to convert it again next time
-		out_path = args.test_data.replace('.'+test_format, '_wo_spec.pkl')
-		with open(out_path, 'wb') as f: 
+	# same the pkl, so do not need to convert it again next time
+	pkl_path = args.test_data.replace('.'+test_format, '.pkl')
+	if args.save_pkl: 
+		if not os.path.exists(pkl_path): 
+			raise OSError('The pkl file exists. Do not need to save it again. ')
+
+		with open(pkl_path, 'wb') as f: 
 			pickle.dump(pkl_dict, f)
-			print('Save converted pkl file to {}'.format(out_path))
+			print('Save converted pkl file to {}'.format(pkl_path))
 
 	valid_set = Mol_Dataset(pkl_dict)
 	valid_loader = DataLoader(

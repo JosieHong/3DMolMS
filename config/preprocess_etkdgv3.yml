@@ -75,6 +75,15 @@ refmet:
   min_atom_num: 10
   precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
 
+all:
+  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
+  precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
+  min_mz: 50
+  max_mz: 1500
+  min_peak_num: 5
+  max_atom_num: 300
+  min_atom_num: 10
+  
 # encoding ===========================================================
 encoding:
   resolution: 0.2

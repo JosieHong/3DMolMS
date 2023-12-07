@@ -337,4 +337,3 @@ class MolNet_Oth(nn.Module):
 		x = self.decoder(x)
 		return x
 	
-
