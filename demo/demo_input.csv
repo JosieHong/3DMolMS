@@ -1,9 +1,7 @@
-ID,SMILES,Precursor_Type,Collision_Energy,Charge
-demo_0,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,20,1
-demo_1,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,40,1
-demo_2,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,20,1
-demo_3,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,40,1
-demo_4,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,20,1
-demo_5,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,40,1
-demo_6,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M-H]-,20,1
-demo_7,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M-H]-,40,1
+ID,SMILES,Precursor_Type,Collision_Energy
+demo_0,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,20
+demo_1,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,40
+demo_2,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,20
+demo_3,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,40
+demo_4,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,20
+demo_5,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,40
