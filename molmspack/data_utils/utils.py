@@ -179,5 +179,9 @@ def precursor_calculator(precursor_type, mass):
 		return 2 * mass + 1.007276
 	elif precursor_type == '[M-H]-':
 		return mass - 1.007276
+	elif precursor_type == '[M+H-H2O]+':
+		return mass - 17.0038370665
+	elif precursor_type == '[M+2H]2+':
+		return mass/2 + 1.007276 
 	else:
 		raise ValueError('Unsupported precursor type: {}'.format(precursor_type))
