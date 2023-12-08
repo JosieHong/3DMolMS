@@ -4,6 +4,7 @@ import numpy as np
 from tqdm import tqdm
 import yaml
 from pyteomics import mgf
+import pickle
 
 import torch
 import torch.nn as nn
