@@ -13,7 +13,11 @@ def filter_spec(spectra, config, type2charge):
 	smiles_list = []
 	for idx, spectrum in enumerate(tqdm(spectra)): 
 		smiles = spectrum['params']['smiles'] 
-		mol = Chem.AddHs(Chem.MolFromSmiles(smiles))
+		try:
+			mol = Chem.AddHs(Chem.MolFromSmiles(smiles))
+		except:
+			print('Invalid SMILES: {}'.format(smiles))
+			continue
 		if mol == None: continue
 
 		# Filter by collision energy
@@ -25,7 +29,7 @@ def filter_spec(spectra, config, type2charge):
 		# Filter by instrument type
 		if 'instrument_type' in config.keys(): 
 			instrument_type = spectrum['params']['instrument_type']
-			if instrument_type not in config['intrument_type']: continue
+			if instrument_type not in config['instrument_type']: continue
 
 		# Filter by instrument (MoNA contains too many intrument names to filter out)
 		if 'instrument' in config.keys(): 
