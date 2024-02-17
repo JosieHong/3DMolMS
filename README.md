@@ -112,14 +112,12 @@ Step 2: Gather the datasets separately, unzip and put them in `./data/`. In the 
     |- MoNA-export-All_LC-MS-MS_QTOF.sdf
     |- MoNA-export-All_LC-MS-MS_Orbitrap.sdf
     |- waters_qtof.mgf
-    |- ALL_GNPS_cleaned.csv
-    |- ALL_GNPS_cleaned.mgf
 ```
 
-Step 3: Use the following commands to preprocess the datasets. Please input the dataset you use at `--dataset` and choose the instrument type in `qtof` and `orbitrap`. `--maxmin_pick` means using the MaxMin algorithm in picking training molecules, otherwise, the random choice is applied. The settings of datasets are in `./preprocess_etkdgv3.yml`. 
+Step 3: Use the following commands to preprocess the datasets. Please input the dataset you use at `--dataset` and choose the instrument type in `qtof`. `--maxmin_pick` means using the MaxMin algorithm in picking training molecules, otherwise, the random choice is applied. The settings of datasets are in `./preprocess_etkdgv3.yml`. 
 
 ```bash
-python preprocess.py --dataset agilent nist mona waters gnps --instrument_type qtof orbitrap --data_config_path ./config/preprocess_etkdgv3.yml --mgf_dir ./data/mgf_debug/
+python preprocess.py --dataset agilent nist mona waters --instrument_type qtof --data_config_path ./config/preprocess_etkdgv3.yml --mgf_dir ./data/mgf_debug/
 ```
 
 Step 4: Use the following commands to train the model. The settings of model and training are in `./config/molnet.yml`. 
@@ -129,9 +127,9 @@ python train.py --train_data ./data/qtof_etkdgv3_train.pkl \
 --test_data ./data/qtof_etkdgv3_test.pkl \
 --model_config_path ./config/molnet.yml \
 --data_config_path ./config/preprocess_etkdgv3.yml \
---checkpoint_path ./check_point/molnetv2_qtof_etkdgv3.pt \
+--checkpoint_path ./check_point/molnet_qtof_etkdgv3.pt \
 --transfer \
---resume_path ./check_point/molnetv2_pre_etkdgv3.pt
+--resume_path ./check_point/molnet_pre_etkdgv3.pt
 ```
 
 In addition, 3DMolMS can be used in molecular properties prediction and generating refer libraries for molecular identification. We give the retention time prediction and cross-collision section prediction as two examples of molecular properties prediction. Please see the details in [./docs/PROP_PRED.md](docs/PROP_PRED.md). The examples of generating refer libraries can be found in [./docs/GEN_REFER_LIB.md](docs/GEN_REFER_LIB.md). 

@@ -17,6 +17,7 @@ agilent_qtof:
   min_peak_num: 5
   max_atom_num: 300
   min_atom_num: 10
+  ppm_tolerance: 10
 
 nist_qtof: 
   intrument_type: ['Q-TOF']
@@ -29,6 +30,7 @@ nist_qtof:
   min_peak_num: 5
   max_atom_num: 300
   min_atom_num: 10
+  ppm_tolerance: 10
 
 mona_qtof:
   intrument_type: ['LC-ESI-QTOF', 'Q-TOF', 'QTOF', 'LC-QTOF', 'LC-Q-TOF/MS', 'ESI-QTOF', 'Q-TOF', 'QTOF']
@@ -40,6 +42,7 @@ mona_qtof:
   min_peak_num: 5
   max_atom_num: 300
   min_atom_num: 10
+  ppm_tolerance: 10
 
 waters_qtof:
   intrument_type: ['QTOF']
@@ -51,6 +54,7 @@ waters_qtof:
   min_peak_num: 5
   max_atom_num: 300
   min_atom_num: 10
+  ppm_tolerance: 10
 
 metlin_rt:
   atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
@@ -83,6 +87,7 @@ all:
   min_peak_num: 5
   max_atom_num: 300
   min_atom_num: 10
+  ppm_tolerance: 10
   
 # encoding ===========================================================
 encoding:
