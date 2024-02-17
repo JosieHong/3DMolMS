@@ -15,19 +15,12 @@
   * [Molecular Properties Prediction](docs/PROP_PRED.md)
   * [Generate reference library for molecular identification](docs/GEN_REFER_LIB.md)
 
+**Updates:** 
 
-
-## Updates 
-
-- 2023.10.30 (v1.10): enlarging training set by MoNA and Waters QTOF datasets. 
-
-- 2023.10.22 (v1.02): pretraining on QM9-mu dataset + ETKDG algorithm. We establish a dataset from QM9-mu (dipole moment) with the generated conformations using ETKDG for pretraining 3DMolMS. It helps the model learning knowledge of molecular 3D conformations and pretraining enhances the performance on MS/MS slightly (~0.01 cosine similarity). 
-
-- 2023.09.14 (v1.01): data augmentation by flipping atomic coordinates. Notably, this model is sensitive to the geometric structure of molecules. For tasks insensitive to geometric structure, e.g. mass spectrometry is chirally blind, please use data augmentation. However, for the tasks sensitive to geometric structure, e.g. different enantiomers with varying retention times, avoid data augmentation. 
-
-- 2023.06.30 (v1.00): initial version. 
-
-
+* 2023.10.30 (v1.10): enlarging training set by MoNA and Waters QTOF datasets. 
+* 2023.10.22 (v1.02): pretraining on QM9-mu dataset + ETKDG algorithm. We establish a dataset from QM9-mu (dipole moment) with the generated conformations using ETKDG for pretraining 3DMolMS. It helps the model learning knowledge of molecular 3D conformations and pretraining enhances the performance on MS/MS slightly (~0.01 cosine similarity). 
+* 2023.09.14 (v1.01): data augmentation by flipping atomic coordinates. Notably, this model is sensitive to the geometric structure of molecules. For tasks insensitive to geometric structure, e.g. mass spectrometry is chirally blind, please use data augmentation. However, for the tasks sensitive to geometric structure, e.g. different enantiomers with varying retention times, avoid data augmentation. 
+* 2023.06.30 (v1.00): initial version. 
 
 ## Usage for MS/MS Prediction
 
@@ -36,21 +29,7 @@ Step 0: Clone this repository and setup the anaconda environment by the followin
 ```bash
 git clone https://github.com/JosieHong/3DMolMS.git
 cd 3DMolMS
-
-
-
-conda create -n molnet 
-conda activate molnet
-# For RDKit
-# https://www.rdkit.org/docs/GettingStartedInPython.html
-conda install -c conda-forge rdkit
-
-# For PyTorch 1.11.0
-conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
-
-pip install -r requirements.txt
-# or
-# conda install --file requirements.txt
+conda env create -f environment.yml
 ```
 
 Step 1: Prepare the test set. The following formats are supported: csv, mgf, or [customed pkl](molmspack/data_utils/all2pkl.py). 
