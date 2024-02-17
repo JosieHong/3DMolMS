@@ -8,7 +8,6 @@
 
 **Contents:**
 
-* [Updates](#updates)
 * [Usage for MS/MS Prediction](#usage-for-msms-prediction)
 * [Train Your Own Model](#train-your-own-model)
 * Using 3DMolMS on Other Tasks
