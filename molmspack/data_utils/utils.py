@@ -11,6 +11,15 @@ from rdkit.Chem import AllChem, rdDepictor
 
 
 
+def ms_vec2dict(spec, resolution=1):
+	x = []
+	y = []
+	for i, j in enumerate(spec):
+		if j != 0: 
+			x.append(str(i*resolution))
+			y.append(str(j))
+	return {'m/z': ','.join(x), 'intensity': ','.join(y)}
+
 def generate_ms(x, y, precursor_mz, resolution=1, max_mz=1500, charge=1): 
 	'''
 	Input:  x   [float list denotes the x-coordinate of peaks]
@@ -97,10 +106,10 @@ def parse_collision_energy(ce_str, precursor_mz, charge=1):
 	# match collision energy (NCE)
 	matches_nce = {
 		# MassBank
-		r"^[\d]+[.]?[\d]*[ ]?[%]? \(nominal\)$": lambda x: float(x.rstrip('% (nominal)')), 
+		r"^[\d]+[.]?[\d]*[ ]?[%]? \(nominal\)$": lambda x: float(x.rstrip('% (nominal)'))*100, 
 		r"^[\d]+[.]?[\d]*[ ]?nce$": lambda x: float(x.rstrip(' nce')), 
 		r"^[\d]+[.]?[\d]*[ ]?\(nce\)$": lambda x: float(x.rstrip(' (nce)')), 
-		r"^NCE=[\d]+\%$": lambda x: float(x.lstrip('NCE=').rstrip('%')), 
+		r"^NCE=[\d]+\%$": lambda x: float(x.lstrip('NCE=').rstrip('%'))*100, 
 		# casmi
 		r"^[\d]+[.]?[\d]*[ ]?\(nominal\)$": lambda x: float(x.rstrip("(nominal)").rstrip(' ')), 
 	}
@@ -132,7 +141,9 @@ def conformation_array(smiles, conf_type):
 	elif conf_type == 'etkdgv3': 
 		mol = Chem.MolFromSmiles(smiles)
 		mol_from_smiles = Chem.AddHs(mol)
-		AllChem.EmbedMolecule(mol_from_smiles, AllChem.ETKDGv3()) 
+		ps = AllChem.ETKDGv3()
+		ps.randomSeed = 0xf00d
+		AllChem.EmbedMolecule(mol_from_smiles, ps) 
 
 	elif conf_type == '2d':
 		mol = Chem.MolFromSmiles(smiles)
@@ -185,3 +196,48 @@ def precursor_calculator(precursor_type, mass):
 		return mass/2 + 1.007276 
 	else:
 		raise ValueError('Unsupported precursor type: {}'.format(precursor_type))
+
+
+if __name__ == '__main__': 
+	example_x = [41.0399,
+				43.0192,
+				43.0766,
+				55.0301,
+				57.0709,
+				65.015,
+				65.0366,
+				67.0302,
+				67.0517,
+				82.0409,
+				92.0251,
+				94.0407,
+				109.0512,
+				119.0354,
+				119.1288,
+				121.0556,
+				136.0619,
+				136.1628,
+				148.0621]
+	example_y = [6.207207,
+				49.711712,
+				1.986987,
+				2.316316,
+				1.600601,
+				3.496496,
+				1.581582,
+				6.727728,
+				4.393393,
+				2.598599,
+				16.601602,
+				8.375375,
+				5.252252,
+				100.0,
+				4.228228,
+				1.025025,
+				41.038038,
+				1.571572,
+				2.447447]
+	example_precursor_mz = 220.1193
+	flag, example_ms = generate_ms(example_x, example_y, example_precursor_mz, resolution=0.2, max_mz=1500, charge=1)
+	example_spec = spec_convert(example_ms, resolution=0.2)
+	print(example_spec)

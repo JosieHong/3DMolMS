@@ -40,7 +40,10 @@ def sdf2mgf(path, prefix):
 			not mol.HasProp('PRECURSOR TYPE') or \
 			not mol.HasProp('PRECURSOR M/Z') or \
 			not mol.HasProp('SPECTRUM TYPE') or \
-			not mol.HasProp('COLLISION ENERGY'): 
+			not mol.HasProp('COLLISION ENERGY') or \
+			not mol.HasProp('ION MODE') or \
+			not mol.HasProp('EXACT MASS') or \
+			not mol.HasProp('INSTRUMENT TYPE'): 
 			continue
 		
 		mz_array = []
@@ -73,4 +76,3 @@ def sdf2mgf(path, prefix):
 		} 
 		spectra.append(spectrum)
 	return spectra
-

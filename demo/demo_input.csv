@@ -1,7 +1,4 @@
 ID,SMILES,Precursor_Type,Collision_Energy
-demo_0,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,20
-demo_1,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,40
-demo_2,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,20
-demo_3,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,40
-demo_4,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,20
-demo_5,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,40
+demo_0,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,40 V
+demo_1,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,20 V
+demo_2,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,10 V

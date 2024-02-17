@@ -1,3 +1,4 @@
+import re
 import numpy as np
 from tqdm import tqdm
 
@@ -5,6 +6,8 @@ from rdkit import Chem
 # ignore the warning
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
+from rdkit.Chem.rdMolDescriptors import CalcMolFormula
+from molmass import Formula
 
 
 
@@ -55,11 +58,80 @@ def filter_spec(spectra, config, type2charge):
 		# Filter by max m/z
 		if np.max(spectrum['m/z array']) < config['min_mz'] or np.max(spectrum['m/z array']) > config['max_mz']: continue
 
+		# Filter by ppm (mass error)
+		try: 
+			f = CalcMolFormula(mol)
+			f = added_formula(f, precursor_type)
+			f = Formula(f)
+			theo_mz = f.isotope.mass
+			ppm = abs(theo_mz - float(spectrum['params']['precursor_mz'])) / theo_mz * 10**6
+		except: # invalud formula, unsupported precursor type, or invalid precursor m/z
+			continue
+		if ppm > config['ppm_tolerance']: continue
+
 		# add charge
 		spectrum['params']['charge'] = type2charge[precursor_type]
 		clean_spectra.append(spectrum)
 		smiles_list.append(smiles)
 	return clean_spectra, smiles_list
+
+def f_str2dict(f):
+	f_dict = {} 
+	frags = re.findall(r'(He|Li|Be|Ne|Na|Mg|Al|Si|Cl|Ar|Ca|Sc|Ti|Cr|Mn|Fe|Co|Ni|Cu|Zn|Ga|Ge|As|Se|Br\
+							|Kr|Rb|Sr|Zr|Nb|Mo|Tc|Ru|Rh|Pd|Ag|Cd|In|Sn|Sb|Te|Xe|Cs|Ba|La|Hf|Ta|Re|Os|Ir\
+							|Pt|Au|Hg|Tl|Pb|Bi|Po|At|Rn|Fr|Ra|Ac|Rf|Db|Sg|Bh|Hs|Mt|Ds|Rg|Cn|Nh|Fl|Mc|Lv\
+							|Ts|Og|[A-Z])(\d\d|\d|)', f)
+	for frag in frags: 
+		# print(frag)
+		atom_sym = frag[0]
+		atom_num = frag[1]
+		if atom_num == None:
+			atom_num = 0
+		elif atom_num == '':
+			atom_num = 1
+			
+		f_dict[atom_sym] = int(atom_num)
+	return f_dict
+
+def f_dict2str(f_dict): 
+	f = ''
+	for k, v in f_dict.items():
+		if v > 1: 
+			f += k + str(v)
+		elif v == 1:
+			f += k
+	return f
+
+def added_formula(f, precursor_type): 
+	f_dict = f_str2dict(str(f))
+	if precursor_type == '[M+H]+': 
+		f_dict['H'] += 1
+	elif precursor_type == '[M+Na]+': 
+		if 'Na' in f_dict.keys():
+			f_dict['Na'] += 1
+		else:
+			f_dict['Na'] = 1
+	elif precursor_type == '[M-H]-': 
+		f_dict['H'] -= 1
+	elif precursor_type == '[M+H-H2O]+': 
+		f_dict['H'] -= 1
+		f_dict['O'] -= 1
+	elif precursor_type == '[M-H2O+H]+': 
+		f_dict['H'] -= 1
+		f_dict['O'] -= 1
+	elif precursor_type == '[M+2H]2+': 
+		f_dict['H'] += 2
+	elif precursor_type == '[2M+H]+': 
+		f_dict = {k: int(v*2) for k, v in f_dict.items()}
+		f_dict['H'] += 1
+	elif precursor_type == '[2M-H]-': 
+		f_dict = {k: int(v*2) for k, v in f_dict.items()}
+		f_dict['H'] -= 1
+	else: 
+		raise ValueError('Unsupported precursor type: {}'.format(precursor_type))
+	
+	f = f_dict2str(f_dict)
+	return f
 
 def filter_mol(suppl, config): 
 	clean_suppl = []

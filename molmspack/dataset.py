@@ -34,10 +34,10 @@ class MolMS_Dataset(Dataset):
 				flipping_data.append({'title': d['title']+'_f', 'mol': flipping_mol_arr, 'spec': d['spec'], 'env': d['env']})
 			
 			self.data = data + flipping_data
-			print('Load {} data from {} (with data augmentation by flipping coordinates)'.format(len(self.data), path))
+			print('Load {} data (with data augmentation by flipping coordinates)'.format(len(self.data)))
 		else:
 			self.data = data
-			print('Load {} data from {}'.format(len(self.data), path))
+			print('Load {} data'.format(len(self.data)))
 
 	def __len__(self): 
 		return len(self.data)
@@ -53,6 +53,33 @@ class MolMS_Dataset(Dataset):
 				filtered_data.append(d)
 		return filtered_data
 	
+
+	
+class MolMS_Score_Dataset(Dataset): 
+	def __init__(self, path, data_augmentation=True): 
+		with open(path, 'rb') as file: 
+			data = pickle.load(file)
+
+		# data augmentation by flipping the x,y,z-coordinates
+		if data_augmentation: 
+			flipping_data = []
+			for d in data:
+				flipping_mol_arr = np.copy(d['mol'])
+				flipping_mol_arr[:, 0] *= -1
+				flipping_data.append({'title': d['title']+'_f', 'mol': flipping_mol_arr, 'score': d['score'], 'env': d['env']})
+			
+			self.data = data + flipping_data
+			print('Load {} data from {} (with data augmentation by flipping coordinates)'.format(len(self.data), path))
+		else:
+			self.data = data
+			print('Load {} data from {}'.format(len(self.data), path))
+
+	def __len__(self): 
+		return len(self.data)
+
+	def __getitem__(self, idx): 
+		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['score'], self.data[idx]['env']
+
 	
 
 class Mol_Dataset(Dataset):

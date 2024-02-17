@@ -96,7 +96,7 @@ def csv2pkl_wfilter(csv_path, encoder):
 		# e.g. https://github.com/rdkit/rdkit/issues/5145
 		# Let's skip the unsolvable molecules. 
 		if not good_conf: # filter 1
-			print('Can not generate correct conformation: {}'.format(row['SMILES']))
+			print('Can not generate correct conformation: {} {}'.format(row['SMILES'], row['ID']))
 			continue
 		if xyz_arr.shape[0] > encoder['max_atom_num']: # filter 2
 			print('Atomic number ({}) exceed the limitation ({})'.format(encoder['max_atom_num'], xyz_arr.shape[0]))
@@ -110,7 +110,7 @@ def csv2pkl_wfilter(csv_path, encoder):
 				rare_atom = atom
 				break
 		if rare_atom_flag:
-			print('Unsupported atom type: {}'.format(rare_atom))
+			print('Unsupported atom type: {} {}'.format(rare_atom, row['ID']))
 			continue
 
 		atom_type_one_hot = np.array([encoder['atom_type'][atom] for atom in atom_type])
@@ -124,9 +124,14 @@ def csv2pkl_wfilter(csv_path, encoder):
 			print('Unsupported precusor type: {}'.format(row['Precursor_Type']))
 			continue
 		precursor_mz = precursor_calculator(row['Precursor_Type'], mass=Descriptors.MolWt(Chem.MolFromSmiles(row['SMILES'])))
-		nce = ce2nce(ce=row['Collision_Energy'], 
-						precursor_mz=precursor_mz, 
-						charge=int(encoder['type2charge'][row['Precursor_Type']]))
+		# nce = ce2nce(ce=row['Collision_Energy'], 
+		# 				precursor_mz=precursor_mz, 
+		# 				charge=int(encoder['type2charge'][row['Precursor_Type']]))
+		ce, nce = parse_collision_energy(ce_str=row['Collision_Energy'], 
+								precursor_mz=precursor_mz, 
+								charge=int(encoder['type2charge'][row['Precursor_Type']]))
+		if ce == None and nce == None:
+			continue
 		precursor_type_one_hot = encoder['precursor_type'][row['Precursor_Type']]
 		env_arr = np.array([nce] + precursor_type_one_hot)
 

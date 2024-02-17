@@ -6,6 +6,8 @@ from tqdm import tqdm
 import yaml
 import pickle
 from pyteomics import mgf
+import gdown
+import zipfile
 
 import torch
 from torch.utils.data import DataLoader
@@ -16,24 +18,22 @@ from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
 from rdkit.Chem import Descriptors
 
+import matplotlib.pyplot as plt
+from matplotlib.offsetbox import (OffsetImage, AnnotationBbox)
+from PIL import Image
+from PIL import ImageFilter
+from rdkit.Chem import Draw
+from rdkit.Chem import AllChem
+
 from molmspack.molnet import MolNet_MS
 from molmspack.dataset import Mol_Dataset
 from molmspack.data_utils import csv2pkl_wfilter, nce2ce, precursor_calculator
-from molmspack.data_utils import filter_spec, mgf2pkl
+from molmspack.data_utils import filter_spec, mgf2pkl, ms_vec2dict
 
 global batch_size
 batch_size = 1
 
 
-
-def spec_convert(spec, resolution):
-	x = []
-	y = []
-	for i, j in enumerate(spec):
-		if j != 0: 
-			x.append(str(i*resolution))
-			y.append(str(j))
-	return {'m/z': ','.join(x), 'intensity': ','.join(y)}
 
 def pred_step(model, device, loader, batch_size, num_points): 
 	model.eval()
@@ -81,12 +81,14 @@ if __name__ == "__main__":
 						help='save converted pkl file')
 	parser.add_argument('--model_config_path', type=str, default='./config/molnet.yml',
 						help='path to model and training configuration')
-	parser.add_argument('--data_config_path', type=str, default='./config/preprocess_etkdg.yml',
+	parser.add_argument('--data_config_path', type=str, default='./config/preprocess_etkdgv3.yml',
 						help='path to data configuration')
-	parser.add_argument('--resume_path', type=str, default='', 
+	parser.add_argument('--resume_path', type=str, default='./check_point/molnet_qtof_etkdgv3.pt', 
 						help='path to pretrained model')
-	parser.add_argument('--result_path', type=str, default='', 
+	parser.add_argument('--result_path', type=str, required=True, 
 						help='path to saving results')
+	parser.add_argument('--save_img_dir', type=str, default='', 
+						help='path to saving images')
 	
 	parser.add_argument('--seed', type=int, default=42,
 						help='seed for random functions')
@@ -154,12 +156,21 @@ if __name__ == "__main__":
 
 	# 3. Evaluation
 	print("Load the checkpoints...")
+	if not os.path.exists(args.resume_path):
+		path2zip_checkpoint = args.resume_path + '.zip'
+		print('Download the checkpoints from Google Drive to {}'.format(path2zip_checkpoint))
+		gdown.download("https://drive.google.com/file/d/1xy2B4i1h5WgfwiVlEYOzHOE28qjVnBf6/view?usp=drive_link", path2zip_checkpoint, fuzzy=True)
+		
+		print('Unzip {}'.format(path2zip_checkpoint))
+		with zipfile.ZipFile(path2zip_checkpoint, 'r') as zip_ref:
+			zip_ref.extractall('/'.join(args.resume_path.split('/')[:-1]))
+
 	model.load_state_dict(torch.load(args.resume_path, map_location=device)['model_state_dict'])
 	best_valid_acc = torch.load(args.resume_path, map_location=device)['best_val_acc']
 
 	id_list, pred_list = pred_step(model, device, valid_loader, 
 									batch_size=batch_size, num_points=config['model']['max_atom_num'])
-	pred_list = [spec_convert(spec, config['model']['resolution']) for spec in pred_list.tolist()]
+	pred_list = [ms_vec2dict(spec, float(config['model']['resolution'])) for spec in pred_list.tolist()]
 	pred_mz = [pred['m/z'] for pred in pred_list]
 	pred_intensity = [pred['intensity'] for pred in pred_list]
 
@@ -208,6 +219,42 @@ if __name__ == "__main__":
 		mgf.write(spectra, args.result_path, file_mode="w", write_charges=False)
 	else:
 		raise Exception("Not implemented output format. Please choose `.csv` or `.mgf`.")
+	print('Save the predicted MS/MS to {}'.format(args.result_path))
 
-	print('Save the test results to {}'.format(args.result_path))
+	# plot
+	if args.save_img_dir != '': 
+		img_dpi = 300
+		y_max = 1
+		x_max = None # varies in different MS/MS
+		bin_width = 0.4 # please adujst it for good looking
+		figsize = (9, 4)
 
+		for idx, row in res_df.iterrows(): 
+			fig, ax = plt.subplots(figsize=figsize)
+			mz_values = np.array([float(i) for i in row['Pred M/Z'].split(',')])
+			x_max = np.max(mz_values)
+			plt.bar(mz_values, 
+					np.array([float(i)*y_max for i in row['Pred Intensity'].split(',')]), 
+					width=bin_width, color='k')
+			plt.xlim(0, x_max)
+			plt.title('ID: '+row['ID'])
+			plt.xlabel('M/Z')
+			plt.ylabel('Relative intensity')
+
+			# plot the molecules 
+			mol = Chem.MolFromSmiles(row['SMILES'])
+			mol = Chem.AddHs(mol)
+			AllChem.EmbedMolecule(mol)
+			AllChem.MMFFOptimizeMolecule(mol, maxIters=200)
+			mol_img = Draw.MolToImage(mol, size=(800, 800))
+			# make the backgrounf transparent
+			alpha_img = mol_img.convert('L')
+			alpha_img = Image.fromarray(255 - np.array(alpha_img))
+			mol_img.putalpha(alpha_img)
+			imagebox = OffsetImage(mol_img, zoom=72./img_dpi) # https://stackoverflow.com/questions/48639369/does-adding-images-in-pyplot-lowers-their-resolution
+			mol_ab = AnnotationBbox(imagebox, (x_max*0.28, y_max*0.64), frameon=False, xycoords='data')
+			ax.add_artist(mol_ab)
+
+			plt.savefig(os.path.join(args.save_img_dir, row['ID']), dpi=img_dpi, bbox_inches='tight')
+			plt.close()
+	print('Save the plotted MS/MS to {}'.format(args.save_img_dir))

@@ -6,6 +6,15 @@
 
 [[paper on Bioinformatics]](https://academic.oup.com/bioinformatics/article/39/6/btad354/7186501) | [[online service on GNPS]](https://spectrumprediction.gnps2.org)
 
+**Contents:**
+
+* [Updates](#updates)
+* [Usage for MS/MS Prediction](#usage-for-msms-prediction)
+* [Train Your Own Model](#train-your-own-model)
+* Using 3DMolMS on Other Tasks
+  * [Molecular Properties Prediction](docs/PROP_PRED.md)
+  * [Generate reference library for molecular identification](docs/GEN_REFER_LIB.md)
+
 
 
 ## Updates 
@@ -20,11 +29,16 @@
 
 
 
-## Usage
+## Usage for MS/MS Prediction
 
-Step 0: Setup the anaconda environment by the following commands: 
+Step 0: Clone this repository and setup the anaconda environment by the following commands: 
 
 ```bash
+git clone https://github.com/JosieHong/3DMolMS.git
+cd 3DMolMS
+
+
+
 conda create -n molnet 
 conda activate molnet
 # For RDKit
@@ -35,59 +49,79 @@ conda install -c conda-forge rdkit
 conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 
 pip install -r requirements.txt
+# or
+# conda install --file requirements.txt
 ```
 
-Step 1: Generate custom test data. If you already have test data, please convert it into a supported format, i.e. csv, mgf, or [customed pkl](https://github.com/JosieHong/3DMolMS/blob/main/molmspack/data_utils/all2pkl.py). Here is an input example of csv format (`./demo_input.csv`): 
+Step 1: Prepare the test set. The following formats are supported: csv, mgf, or [customed pkl](molmspack/data_utils/all2pkl.py). 
+
+Here is an input example from MoNA of csv format (see the whole file at `./demo_input.csv`): 
 
 ```
 ID,SMILES,Precursor_Type,Collision_Energy
-demo_0,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,20
-demo_1,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M+H]+,40
-demo_2,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,20
-demo_3,NC(CCCCn1cccc2nc(NCCCC(N)C(=O)O)nc1-2)C(=O)O,[M+H]+,40
-demo_4,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,20
-demo_5,O=S(=O)(O)CC(O)CN1CCN(CCO)CC1,[M-H]-,40
+demo_0,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,40 V
+demo_1,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,20 V
+demo_2,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,10 V
+```
+
+Here is an input example from MoNA of mgf format (see the whole file at `./demo_input.mgf`): 
+
+```
+BEGIN IONS
+TITLE=demo_0
+CHARGE=1+
+PRECURSOR_TYPE=[M+H]+
+PRECURSOR_MZ=220.1193
+MOLMASS=219.11201003600002
+MS_LEVEL=MS2
+IONMODE=P
+SOURCE_INSTRUMENT=Agilent 6530 Q-TOF
+INSTRUMENT_TYPE=LC-ESI-QTOF
+COLLISION_ENERGY=40 V
+SMILES=C/C(=C\CNc1nc[nH]c2ncnc1-2)CO
+INCHI_KEY=UZKQTCBAMSWPJD-FARCUNLSSA-N
+41.0399 6.207207
+43.0192 49.711712
+43.0766 1.986987
+......
 ```
 
 Please notice that the unsupported input will be filtered out automatically when loading the dataset. The supported inputs are shown in the following table. 
 
-| Item             | Supported input                                           |
-|------------------|-----------------------------------------------------------|
-| Atom number      | <=300                                                     |
-| Atom types       | 'C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I'   |
-| Precursor types  | '[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+'               |
-| Collision energy | any number                                                |
+| Item             | Supported input                                               |
+|------------------|---------------------------------------------------------------|
+| Atom number      | <=300                                                         |
+| Atom types       | 'C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I', 'Na' |
+| Precursor types  | '[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+'                   |
+| Collision energy | any number                                                    |
 
-Step 2: Download the model weights (`molnet_qtof_etkdgv3.pt.zip`) from [Google Drive](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link). If you have trained your own model, please ignore this step. 
-
-Step 3: Predict the MS/MS or evaluate 3DMolMS. 
-
-IF you want to use 3DMolMS on certain molecules that do not know the experimental MS/MS, please use the following commands: 
+Step 2: Predict the MS/MS spectra using the following command: 
 
 ```bash
-python pred.py --test_data ./demo/demo_input.csv \
+python pred.py \
+--test_data ./demo/demo_input.csv \
 --model_config_path ./config/molnet.yml \
 --data_config_path ./config/preprocess_etkdgv3.yml \
 --resume_path ./check_point/molnet_qtof_etkdgv3.pt \
---result_path ./demo/demo_output.csv
+--result_path ./demo/demo_output.mgf \
+--save_img_dir ./img/
 ```
 
-IF you have the experimental MS/MS and want to evaluate 3DMolMS, please use the following command: 
+Arguments: 
 
-```bash
-python eval.py --test_data ./demo/demo_input.mgf \
---model_config_path ./config/molnet.yml \
---data_config_path ./config/preprocess_etkdgv3.yml \
---resume_path ./check_point/molnet_qtof_etkdgv3.pt
-```
+- `--resume_path` is the path of model's checkpoint. In the first running, the checkpoint (`./checkpoint/molnet_qtof_etkdgv3.pt`) will be downloaded from [Google Drive](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link). You can also set the resume path as the path to your own model. 
+- `--result_path` is the path to save the predicted MS/MS. It should end with `.mgf` or `.csv`. We recommend you use `.mgf` because mgf is a more common format for MS/MS.  
+- `--save_img_dir` is an optional argument denoting the path to save the figures of predicted MS/MS. One of the plots is shown here: 
 
+<p align="center">
+  <img src='img/demo_0.png' width='600'>
+</p> 
 
-
-## Train your own model
+## Train Your Own Model
 
 Please set up the environment as shown in step 0 from the above section. 
 
-Step 1: Download the pretrained model (`molnet_pre_etkdgv3.pt.zip`) from [Google Drive](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link) or pretrain the model by yourself. The details of pretraining the model on [QM9](https://figshare.com/collections/Quantum_chemistry_structures_and_properties_of_134_kilo_molecules/978904)-mu are demonstrated at [./docs/PRETRAIN.md](https://github.com/JosieHong/3DMolMS/blob/main/docs/PRETRAIN.md). 
+Step 1: Download the pretrained model (`molnet_pre_etkdgv3.pt.zip`) from [Google Drive](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link) or pretrain the model by yourself. The details of pretraining the model on [QM9](https://figshare.com/collections/Quantum_chemistry_structures_and_properties_of_134_kilo_molecules/978904)-mu are demonstrated at [./docs/PRETRAIN.md](docs/PRETRAIN.md). 
 
 Step 2: Gather the datasets separately, unzip and put them in `./data/`. In the latest version, we use 4 datasets to train the model: (1) Agilent DPCL is provided by [Agilent Technologies](https://www.agilent.com/). (2) [NIST20](https://www.nist.gov/programs-projects/nist23-updates-nist-tandem-and-electron-ionization-spectral-libraries) is academically available with a License. (3) [MoNA](https://mona.fiehnlab.ucdavis.edu/downloads) is publicly available. (4) Waters QTOF is our own experimental dataset. The structure of data directory is: 
 
@@ -98,13 +132,16 @@ Step 2: Gather the datasets separately, unzip and put them in `./data/`. In the 
     |- Agilent_Metlin.sdf
     |- hr_msms_nist.SDF
     |- MoNA-export-All_LC-MS-MS_QTOF.sdf
+    |- MoNA-export-All_LC-MS-MS_Orbitrap.sdf
     |- waters_qtof.mgf
+    |- ALL_GNPS_cleaned.csv
+    |- ALL_GNPS_cleaned.mgf
 ```
 
 Step 3: Use the following commands to preprocess the datasets. Please input the dataset you use at `--dataset` and choose the instrument type in `qtof` and `orbitrap`. `--maxmin_pick` means using the MaxMin algorithm in picking training molecules, otherwise, the random choice is applied. The settings of datasets are in `./preprocess_etkdgv3.yml`. 
 
 ```bash
-python preprocess.py --dataset agilent nist mona waters --instrument_type qtof --data_config_path ./config/preprocess_etkdgv3.yml --mgf_dir ./data/mgf_debug/
+python preprocess.py --dataset agilent nist mona waters gnps --instrument_type qtof orbitrap --data_config_path ./config/preprocess_etkdgv3.yml --mgf_dir ./data/mgf_debug/
 ```
 
 Step 4: Use the following commands to train the model. The settings of model and training are in `./config/molnet.yml`. 
@@ -114,12 +151,12 @@ python train.py --train_data ./data/qtof_etkdgv3_train.pkl \
 --test_data ./data/qtof_etkdgv3_test.pkl \
 --model_config_path ./config/molnet.yml \
 --data_config_path ./config/preprocess_etkdgv3.yml \
---checkpoint_path ./check_point/molnet_qtof_etkdgv3.pt \
+--checkpoint_path ./check_point/molnetv2_qtof_etkdgv3.pt \
 --transfer \
---resume_path ./check_point/molnet_pre_etkdgv3.pt
+--resume_path ./check_point/molnetv2_pre_etkdgv3.pt
 ```
 
-In addition, 3DMolMS can be used in molecular properties prediction and generating refer libraries for molecular identification. We give the retention time prediction and cross-collision section prediction as two examples of molecular properties prediction. Please see the details in [./docs/PROP_PRED.md](https://github.com/JosieHong/3DMolMS/blob/main/docs/PROP_PRED.md). The examples of generating refer libraries can be found in [./docs/GEN_REFER_LIB.md](https://github.com/JosieHong/3DMolMS/blob/main/docs/GEN_REFER_LIB.md). 
+In addition, 3DMolMS can be used in molecular properties prediction and generating refer libraries for molecular identification. We give the retention time prediction and cross-collision section prediction as two examples of molecular properties prediction. Please see the details in [./docs/PROP_PRED.md](docs/PROP_PRED.md). The examples of generating refer libraries can be found in [./docs/GEN_REFER_LIB.md](docs/GEN_REFER_LIB.md). 
 
 
 
