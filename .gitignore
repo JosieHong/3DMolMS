@@ -130,8 +130,4 @@ dmypy.json
 
 
 
-check_point/
-data/
-notebook/
-release/
-
+dist/
