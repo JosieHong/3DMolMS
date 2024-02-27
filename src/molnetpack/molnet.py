@@ -24,11 +24,11 @@ from rdkit.Chem import Draw
 from rdkit.Chem import AllChem
 from pathlib import Path
 
-from molnet_yuhhong.model import MolNet_MS
-from molnet_yuhhong.dataset import Mol_Dataset
-from molnet_yuhhong.data_utils import csv2pkl_wfilter, nce2ce, precursor_calculator
-from molnet_yuhhong.data_utils import filter_spec, mgf2pkl, ms_vec2dict
-from molnet_yuhhong.utils import pred_step
+from .model import MolNet_MS, MolNet_Oth
+from .dataset import Mol_Dataset
+from .data_utils import csv2pkl_wfilter, nce2ce, precursor_calculator
+from .data_utils import filter_spec, mgf2pkl, ms_vec2dict
+from .utils import pred_step, eval_step_oth
 
 
 
@@ -169,13 +169,53 @@ class MolNet():
 
         return spectra # mgf
 
-    def pred_ccs(self,): 
+    def pred_ccs(self, path_to_results): 
         # create model
+        self.ccs_model = MolNet_Oth(self.ccs_config['model']).to(self.device)
+        num_params = sum(p.numel() for p in self.ccs_model.parameters())
 
         # load the best checkpoint
+        checkpoint_path = str(self.current_path / Path(self.ccs_config['test']['local_path']))
+        if not os.path.exists(checkpoint_path): 
+            checkpoint_dir = str(self.current_path / Path('/'.join(self.ccs_config['test']['local_path'].split('/')[:-1])))
+            os.makedirs(checkpoint_dir, exist_ok=True) 
 
+            checkpoint_zip_path = checkpoint_path + '.zip'
+            print('Download the checkpoints from Google Drive to {}'.format(checkpoint_zip_path))
+            gdown.download(self.ccs_config['test']['google_drive_link'], checkpoint_zip_path, fuzzy=True)
+            
+            print('Unzip {}'.format(checkpoint_zip_path))
+            with zipfile.ZipFile(checkpoint_zip_path, 'r') as zip_ref:
+                zip_ref.extractall(checkpoint_dir)
+        
+        self.ccs_model.load_state_dict(torch.load(checkpoint_path, map_location=self.device)['model_state_dict'])
+    
         # pred
-        pass # csv
+        id_list, pred_list = eval_step_oth(self.ccs_model, self.device, self.valid_loader, 
+                                            batch_size=1, num_points=self.ccs_config['model']['max_atom_num'])
+
+        # output the results
+        result_dir = "".join(path_to_results.split('/')[:-1])
+        os.makedirs(result_dir, exist_ok = True)
+
+        decoding_precursor_type = {','.join(map(str, v)): k for k, v in self.data_config['encoding']['precursor_type'].items()}
+        add_list = []
+        smiles_list = []
+        for d in self.pkl_dict: 
+            precursor_type = decoding_precursor_type[','.join(map(str, map(int, d['env'][1:])))]
+            smiles = d['smiles']
+            add_list.append(precursor_type)
+            smiles_list.append(smiles)
+
+        self.ccs_res_df = pd.DataFrame({'ID': id_list, 'SMILES': smiles_list, 
+                                        'Precursor Type': add_list, 'Pred CCS': torch.flatten(pred_list).tolist()})
+
+        self.ccs_res_df.to_csv(path_to_results)
+        print('\nSaved the results to {}'.format(path_to_results))
+
+        return self.ccs_res_df # pandas data frame
+
+
     
     def plot_msms(self, dir_to_img): 
         os.makedirs(dir_to_img, exist_ok = True)

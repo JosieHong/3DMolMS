@@ -11,7 +11,7 @@ from rdkit import Chem
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
 
-from molmspack.data_utils import conformation_array, filter_mol, check_atom
+from molnetpack.data_utils import conformation_array, filter_mol, check_atom
 
 
 
@@ -94,7 +94,7 @@ if __name__ == "__main__":
 						help='path to pkl data')
 	parser.add_argument('--dataset', type=str, nargs='+', required=True, choices=['metlin', 'allccs'], 
 						help='dataset name')
-	parser.add_argument('--data_config_path', type=str, default='./config/preprocess_etkdgv3.yml',
+	parser.add_argument('--data_config_path', type=str, default='./src/molnetpack/config/preprocess_etkdgv3.yml',
 						help='path to configuration')
 	args = parser.parse_args()
 	

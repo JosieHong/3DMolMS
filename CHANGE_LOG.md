@@ -1,3 +1,4 @@
+* 2024.02.27 (v1.1.2): fix the independences; update ccs prediction.  
 * 2024.02.27 (v1.1.1): PyPI package release. 
 * 2023.10.30 (v1.1.0): enlarging training set by MoNA and Waters QTOF datasets. 
 * 2023.10.22 (v1.0.2): pretraining on QM9-mu dataset + ETKDG algorithm. We establish a dataset from QM9-mu (dipole moment) with the generated conformations using ETKDG for pretraining 3DMolMS. It helps the model learning knowledge of molecular 3D conformations and pretraining enhances the performance on MS/MS slightly (~0.01 cosine similarity). 

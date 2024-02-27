@@ -30,7 +30,7 @@ pip install torch==1.13.0+cpu torchvision==0.14.0+cpu torchaudio==0.13.0 --extra
 
 ## Usage
 
-To get started quickly, you can load a CSV or MGF file to predict MS/MS and then plot the predicted results:
+To get started quickly, you can load a CSV or MGF file to predict MS/MS and then plot the predicted results. 
 
 ```python
 import torch
@@ -55,18 +55,21 @@ spectra = molnet_engine.pred_msms(path_to_results='./test/demo_msms.mgf')
 
 # Plot the predicted MS/MS with 3D molecular conformation
 molnet_engine.plot_msms(dir_to_img='./img/')
+
+# Pred CCS
+ccs_df = molnet_engine.pred_ccs(path_to_results='./test/demo_ccs.csv')
 ```
 
-Please note that unsupported input data will be automatically filtered out during the data loading process. The table below shows the supported inputs: 
+The sample input files, a CSV and an MGF, are located at `./test/demo_input.csv` and `./test/demo_input.mgf`, respectively. If the input data is only expected to be used in CCS prediction, you may assign an arbitrary numerical value to the `Collision_Energy` field in the CSV file or to `COLLISION_ENERGY` in the MGF file. It's important to note that during the data loading phase, any input formats that are not supported will be automatically excluded. Below is a table outlining the types of input data that are supported: 
 
 | Item             | Supported input                                               |
 |------------------|---------------------------------------------------------------|
 | Atom number      | <=300                                                         |
 | Atom types       | 'C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I', 'Na' |
-| Precursor types  | '[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+'                   |
+| Precursor types  | '[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+'       |
 | Collision energy | any number                                                    |
 
-Here is an example of predicted MS/MS plot. 
+The sample output files are at `./test/demo_msms.mgf` and `./test/demo_ccs.csv`. Below is an example of a predicted MS/MS spectrum plot.
 
 <p align="center">
   <img src='https://github.com/JosieHong/3DMolMS/blob/main/img/demo_0.png' width='600'>

@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
     # Download
     # AllCCS00000000 - AllCCS02049881
-    for req_i in range(2049881//100 + 1):
+    for req_i in range(2049881//100 + 1): 
         url = 'http://allccs.zhulab.cn/database/browser_download?ids='
         ids = ['AllCCS' + str(i).zfill(8) for i in range(req_i*100, req_i*100+100)]
         url += ','.join(ids)

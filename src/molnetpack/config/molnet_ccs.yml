@@ -14,3 +14,7 @@ train:
   batch_size: 32
   num_workers: 0
   lr: 0.0001
+
+test:
+  local_path: './check_point/molnet_ccs_etkdgv3_tl.pt'
+  google_drive_link: 'https://drive.google.com/file/d/1Pdy6o5ZZQ-1JfvB0qXkkqroL69xkH4lk/view?usp=drive_link'

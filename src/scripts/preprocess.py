@@ -13,7 +13,7 @@ RDLogger.DisableLog('rdApp.*')
 from rdkit.Chem import rdFingerprintGenerator
 from rdkit.SimDivFilters.rdSimDivPickers import MaxMinPicker
 
-from molmspack.data_utils import sdf2mgf, filter_spec, mgf2pkl
+from molnetpack.data_utils import sdf2mgf, filter_spec, mgf2pkl
 
 
 

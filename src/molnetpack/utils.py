@@ -10,8 +10,7 @@ def pred_step(model, device, loader, batch_size, num_points):
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader):
 			ids, x, env = batch
-			x = x.to(device=device, dtype=torch.float)
-			x = x.permute(0, 2, 1)
+			x = x.to(device=device, dtype=torch.float).permute(0, 2, 1)
 			env = env.to(device=device, dtype=torch.float)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
@@ -33,3 +32,28 @@ def pred_step(model, device, loader, batch_size, num_points):
 	pred_list = torch.cat(pred_list, dim = 0)
 	return id_list, pred_list
 
+
+
+def eval_step_oth(model, device, loader, batch_size, num_points): 
+	model.eval()
+	id_list = []
+	pred_list = []
+	with tqdm(total=len(loader)) as bar:
+		for step, batch in enumerate(loader):
+			ids, x, env = batch
+			x = x.to(device=device, dtype=torch.float).permute(0, 2, 1)
+			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
+			env = env.to(device=device, dtype=torch.float)
+			env = env[:, 1:] # remove collision energy in `env`
+
+			with torch.no_grad(): 
+				pred = model(x, env, idx_base) 
+				
+			bar.set_description('Eval')
+			bar.update(1)
+
+			id_list += ids
+			pred_list.append(pred)
+
+	pred_list = torch.cat(pred_list, dim = 0)
+	return id_list, pred_list

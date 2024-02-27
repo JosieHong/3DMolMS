@@ -9,8 +9,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from molmspack.molnet import MolNet_Oth
-from molmspack.dataset import MolPRE_Dataset
+from molnetpack.molnet import MolNet_Oth
+from molnetpack.dataset import MolPRE_Dataset
 
 def get_lr(optimizer):
 	for param_group in optimizer.param_groups:
