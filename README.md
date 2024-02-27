@@ -69,7 +69,7 @@ Please note that unsupported input data will be automatically filtered out durin
 Here is an example of predicted MS/MS plot. 
 
 <p align="center">
-  <img src='https://github.com/JosieHong/3DMolMS/img/demo_0.png' width='600'>
+  <img src='img/demo_0.png' width='600'>
 </p> 
 
 The documents for running MS/MS prediction from source codes are at [MSMS_PRED.md](docs/MSMS_PRED.md). 
