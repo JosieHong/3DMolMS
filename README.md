@@ -4,7 +4,7 @@
 
 **3D** **Mol**ecular Network for **M**ass **S**pectra Prediction (3DMolMS) is a deep neural network model to predict the MS/MS spectra of compounds from their 3D conformations. This model's molecular representation, learned through MS/MS prediction tasks, can be further applied to enhance performance in other molecular-related tasks, such as predicting retention times and collision cross sections. 
 
-[Read our paper in Bioinformatics](https://academic.oup.com/bioinformatics/article/39/6/btad354/7186501) | [Try our online service at GNPS](https://spectrumprediction.gnps2.org) | [Install from PyPI](https://pypi.org/project/molnetpack/1.1.0/)
+[Read our paper in Bioinformatics](https://academic.oup.com/bioinformatics/article/39/6/btad354/7186501) | [Try our online service at GNPS](https://spectrumprediction.gnps2.org) | [Install from PyPI](https://pypi.org/project/molnetpack/)
 
 
 
@@ -69,7 +69,7 @@ Please note that unsupported input data will be automatically filtered out durin
 Here is an example of predicted MS/MS plot. 
 
 <p align="center">
-  <img src='img/demo_0.png' width='600'>
+  <img src='https://github.com/JosieHong/3DMolMS/blob/main/img/demo_0.png' width='600'>
 </p> 
 
 The documents for running MS/MS prediction from source codes are at [MSMS_PRED.md](docs/MSMS_PRED.md). 
