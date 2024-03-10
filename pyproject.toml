@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "molnetpack"
-version = "1.1.2"
+version = "1.1.3"
 authors = [
     { name="Yuhui Hong", email="yuhhong@iu.edu" },
     { name="Sujun Li" },
@@ -17,7 +17,7 @@ maintainers = [
     { name="Yuhui Hong", email="yuhhong@iu.edu" }, 
 ]
 description = "3DMolMS: prediction of tandem mass spectra from 3D molecular conformations"
-readme = "README.md"
+readme = "PyPI_README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",

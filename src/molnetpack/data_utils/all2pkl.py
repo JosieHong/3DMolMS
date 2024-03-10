@@ -120,20 +120,27 @@ def csv2pkl_wfilter(csv_path, encoder):
 		mol_arr = np.pad(mol_arr, ((0, encoder['max_atom_num']-xyz_arr.shape[0]), (0, 0)), constant_values=0)
 		
 		# env array
-		if row['Precursor_Type'] not in encoder['precursor_type'].keys(): # filter 4
-			print('Unsupported precusor type: {}'.format(row['Precursor_Type']))
-			continue
-		precursor_mz = precursor_calculator(row['Precursor_Type'], mass=Descriptors.MolWt(Chem.MolFromSmiles(row['SMILES'])))
-		# nce = ce2nce(ce=row['Collision_Energy'], 
-		# 				precursor_mz=precursor_mz, 
-		# 				charge=int(encoder['type2charge'][row['Precursor_Type']]))
-		ce, nce = parse_collision_energy(ce_str=row['Collision_Energy'], 
-								precursor_mz=precursor_mz, 
-								charge=int(encoder['type2charge'][row['Precursor_Type']]))
-		if ce == None and nce == None:
-			continue
-		precursor_type_one_hot = encoder['precursor_type'][row['Precursor_Type']]
-		env_arr = np.array([nce] + precursor_type_one_hot)
+		if 'Collision_Energy' in row.keys():
+			if row['Precursor_Type'] not in encoder['precursor_type'].keys(): # filter 4
+				print('Unsupported precusor type: {}'.format(row['Precursor_Type']))
+				continue
+			precursor_mz = precursor_calculator(row['Precursor_Type'], mass=Descriptors.MolWt(Chem.MolFromSmiles(row['SMILES'])))
+			ce, nce = parse_collision_energy(ce_str=row['Collision_Energy'], 
+									precursor_mz=precursor_mz, 
+									charge=int(encoder['type2charge'][row['Precursor_Type']]))
+			if ce == None and nce == None:
+				continue
+		if 'Precursor_Type' in row.keys(): 
+			precursor_type_one_hot = encoder['precursor_type'][row['Precursor_Type']]
+		
+		if 'Collision_Energy' in row.keys() and 'Precursor_Type' in row.keys(): # (msms prediction)
+			env_arr = np.array([nce] + precursor_type_one_hot)
+		elif 'Precursor_Type' in row.keys(): # only precursor types (ccs prediction)
+			env_arr = np.array([0.] + precursor_type_one_hot)
+		elif 'Collision_Energy' in row.keys(): # only collision energies (didn't use this so far)
+			env_arr = np.array([nce] + [0.]*len(encoder['precursor_type']))
+		else: # no env (filled all zeros)
+			env_arr = np.zeros(1+len(encoder['precursor_type']))
 
 		data.append({'title': row['ID'], 'smiles': row['SMILES'], 'mol': mol_arr, 'env': env_arr})
 	return data
