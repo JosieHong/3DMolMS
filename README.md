@@ -79,7 +79,7 @@ For saving the molecular embeddings, please use the following codes after instan
 molnet_engine.load_data(path_to_test_data='./test/input_savefeat.csv')
 
 # Inference to get the features
-features = molnet_engine.save_features()
+ids, features = molnet_engine.save_features()
 
 print('Titles:', ids)
 print('Features shape:', features.shape)
