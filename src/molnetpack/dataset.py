@@ -78,6 +78,20 @@ class Mol_Dataset(Dataset):
 
 
 
+class MolRT_Dataset(Dataset): 
+	def __init__(self, path): 
+		with open(path, 'rb') as file: 
+			self.data = pickle.load(file)
+		print('Load {} data from {}'.format(len(self.data), path))
+
+	def __len__(self): 
+		return len(self.data)
+
+	def __getitem__(self, idx): 
+		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['rt']
+
+		
+
 class MolCCS_Dataset(Dataset): 
 	def __init__(self, path): 
 		with open(path, 'rb') as file: 
