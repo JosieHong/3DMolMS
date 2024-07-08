@@ -52,7 +52,7 @@ device = torch.device("cpu")
 molnet_engine = MolNet(device, seed=42) # The random seed can be any integer. 
 
 # Load input data (here we use a CSV file as an example)
-molnet_engine.load_data(path_to_test_data='./test/input_msms.csv')
+molnet_engine.load_data(path_to_test_data='./test/input_msms.csv', batchsize=1) # Increasing the batch size if you wanna speed up.
 # molnet_engine.load_data(path_to_test_data='./test/input_msms.mgf') # MGF file is also supported
 
 # Predict MS/MS

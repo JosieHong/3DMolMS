@@ -75,7 +75,7 @@ class MolNet():
 		torch.cuda.manual_seed(seed)
 		return
 
-	def load_data(self, path_to_test_data): 
+	def load_data(self, path_to_test_data, batchsize): 
 		test_format = path_to_test_data.split('.')[-1]
 		if test_format == 'csv': # convert csv file into pkl 
 			self.pkl_dict = csv2pkl_wfilter(path_to_test_data, self.data_config['encoding'])
@@ -95,10 +95,10 @@ class MolNet():
 		valid_set = Mol_Dataset(self.pkl_dict)
 		self.valid_loader = DataLoader(
 							valid_set,
-							batch_size=1, 
+							batch_size=batchsize, 
 							shuffle=False, 
 							num_workers=0, 
-							drop_last=True)
+							drop_last=False)
 
 	def load_checkpoint(self, task_name): 
 		if task_name == 'msms':
