@@ -1,18 +1,23 @@
 import torch
 from molnetpack import MolNet
 
-# CPU
+# Set the device to CPU for CPU-only usage:
 device = torch.device("cpu")
 
-# GPU
-# gpu_index = 0 # please set this into the index of GPU you plan to use
-# device = torch.device("cuda:" + str(gpu_index))
+# For GPU usage, set the device as follows (replace '0' with your desired GPU index):
+# gpu_index = 0
+# device = torch.device(f"cuda:{gpu_index}")
 
-molnet_engine = MolNet(device, seed=42)
+# Instantiate a MolNet object
+molnet_engine = MolNet(device, seed=42) # The random seed can be any integer. 
 
-# molnet_engine.load_data(path_to_test_data='./test/demo_input.csv', path_to_save_pkl='./test/demp_input.pkl')
-molnet_engine.load_data(path_to_test_data='./test/demo_msms_input.csv')
+# Load input data (here we use a CSV file as an example)
+molnet_engine.load_data(path_to_test_data='./test/input_msms.csv') # Increasing the batch size if you wanna speed up.
+# molnet_engine.load_data(path_to_test_data='./test/input_msms.mgf') # MGF file is also supported
+# molnet_engine.load_data(path_to_test_data='./test/input_msms.pkl') # PKL file is faster. 
 
-spectra = molnet_engine.pred_msms(path_to_results='./test/demo_msms.mgf')
+# Predict MS/MS
+spectra = molnet_engine.pred_msms(path_to_results='./test/output_msms.mgf')
 
-molnet_engine.plot_msms(dir_to_img='./test/img/')
+# Plot the predicted MS/MS with 3D molecular conformation
+molnet_engine.plot_msms(dir_to_img='./img/')

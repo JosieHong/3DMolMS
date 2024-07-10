@@ -66,7 +66,8 @@ class MolNet():
 		self.ccs_res_df = None # pandas dataframe
 
 		self.encoder = None # PyTorch model
-
+		
+		self.batch_size = None
 		self.init_random_seed(seed)
 
 	def init_random_seed(self, seed):
@@ -75,7 +76,7 @@ class MolNet():
 		torch.cuda.manual_seed(seed)
 		return
 
-	def load_data(self, path_to_test_data, batchsize): 
+	def load_data(self, path_to_test_data): 
 		test_format = path_to_test_data.split('.')[-1]
 		if test_format == 'csv': # convert csv file into pkl 
 			self.pkl_dict = csv2pkl_wfilter(path_to_test_data, self.data_config['encoding'])
@@ -95,10 +96,21 @@ class MolNet():
 		valid_set = Mol_Dataset(self.pkl_dict)
 		self.valid_loader = DataLoader(
 							valid_set,
-							batch_size=batchsize, 
+							batch_size=1, 
 							shuffle=False, 
 							num_workers=0, 
 							drop_last=False)
+
+	def load_checkpoint_local(self, path_to_checkpoint, task_name):
+		if not os.path.exists(path_to_checkpoint): 
+			raise FileNotFoundError('Checkpoint not found: {}'.format(path_to_checkpoint))
+		
+		if task_name == 'msms':
+			self.msms_model.load_state_dict(torch.load(path_to_checkpoint, map_location=self.device)['model_state_dict'])
+		elif task_name == 'ccs':
+			self.ccs_model.load_state_dict(torch.load(path_to_checkpoint, map_location=self.device)['model_state_dict'])
+		elif task_name == 'save_feat':
+			self.encoder.load_state_dict(torch.load(path_to_checkpoint, map_location=self.device)['model_state_dict'], strict=False)
 
 	def load_checkpoint(self, task_name): 
 		if task_name == 'msms':
@@ -149,9 +161,8 @@ class MolNet():
 			self.encoder.load_state_dict(torch.load(checkpoint_path, map_location=self.device)['model_state_dict'], strict=False)
 		else:
 			raise Exception('Unsupported task name: {}'.format(task_name))
-		return
 
-	def save_features(self, ):
+	def save_features(self, checkpoint_path):
 		# create model
 		self.encoder = Encoder(in_dim=self.msms_config['model']['in_dim'], 
 								layers=self.msms_config['model']['encode_layers'], 
@@ -160,20 +171,28 @@ class MolNet():
 		num_params = sum(p.numel() for p in self.encoder.parameters())
 		
 		# load the best checkpoint
-		self.load_checkpoint(task_name='save_feat')
+		if checkpoint_path is not None:
+			self.load_checkpoint_local(checkpoint_path, task_name='save_feat')
+			print('Loaded the checkpoint from {}'.format(checkpoint_path))
+		else:
+			self.load_checkpoint(task_name='save_feat')
 		
 		# Inference
 		ids, features = pred_feat(self.encoder, self.device, self.valid_loader, 
 								batch_size=1, num_points=self.msms_config['model']['max_atom_num'])
 		return ids, features.cpu().detach().numpy()
 
-	def pred_msms(self, path_to_results): 
+	def pred_msms(self, path_to_results, path_to_checkpoint=None): 
 		# create model
 		self.msms_model = MolNet_MS(self.msms_config['model']).to(self.device)
 		num_params = sum(p.numel() for p in self.msms_model.parameters())
 
 		# load the best checkpoint
-		self.load_checkpoint(task_name='msms')
+		if path_to_checkpoint is not None:
+			self.load_checkpoint_local(path_to_checkpoint, task_name='msms')
+			print('Loaded the checkpoint from {}'.format(checkpoint_path))
+		else: 
+			self.load_checkpoint(task_name='msms')
 	
 		# pred
 		id_list, pred_list = pred_step(self.msms_model, self.device, self.valid_loader, 
@@ -215,8 +234,8 @@ class MolNet():
 					'collision_energy': row['Collision Energy'],
 					'precursor_type': row['Precursor Type'],
 				},
-				'm/z array': np.array([float(i) for i in row['Pred M/Z'].split(',')]),
-				'intensity array': np.array([float(i)*1000 for i in row['Pred Intensity'].split(',')])
+				'm/z array': np.array([float(i) for i in row['Pred M/Z'].split(',') if i != '']),
+				'intensity array': np.array([float(i)*1000 for i in row['Pred Intensity'].split(',') if i != ''])
 			} 
 			spectra.append(spectrum)
 		
@@ -225,13 +244,17 @@ class MolNet():
 
 		return spectra # mgf
 
-	def pred_ccs(self, path_to_results): 
+	def pred_ccs(self, path_to_results, path_to_checkpoint=None): 
 		# create model
 		self.ccs_model = MolNet_Oth(self.ccs_config['model']).to(self.device)
 		num_params = sum(p.numel() for p in self.ccs_model.parameters())
 
 		# load the best checkpoint
-		self.load_checkpoint(task_name='ccs')
+		if path_to_checkpoint is not None:
+			self.load_checkpoint_local(path_to_checkpoint, task_name='ccs')
+			print('Loaded the checkpoint from {}'.format(checkpoint_path))
+		else:
+			self.load_checkpoint(task_name='ccs')
 	
 		# pred
 		id_list, pred_list = eval_step_oth(self.ccs_model, self.device, self.valid_loader, 
@@ -258,7 +281,7 @@ class MolNet():
 
 		return self.ccs_res_df # pandas data frame
 
-
+	
 	
 	def plot_msms(self, dir_to_img): 
 		os.makedirs(dir_to_img, exist_ok = True)

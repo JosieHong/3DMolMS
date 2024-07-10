@@ -4,6 +4,7 @@ import torch
 
 
 def pred_step(model, device, loader, batch_size, num_points): 
+	assert batch_size == 1, "batch_size should be 1 for prediction"
 	model.eval()
 	id_list = []
 	pred_list = []
@@ -35,6 +36,7 @@ def pred_step(model, device, loader, batch_size, num_points):
 
 
 def eval_step_oth(model, device, loader, batch_size, num_points): 
+	assert batch_size == 1, "batch_size should be 1 for prediction"
 	model.eval()
 	id_list = []
 	pred_list = []
@@ -61,6 +63,7 @@ def eval_step_oth(model, device, loader, batch_size, num_points):
 
 
 def pred_feat(model, device, loader, batch_size, num_points): 
+	assert batch_size == 1, "batch_size should be 1 for prediction"
 	model.eval()
 	id_list = []
 	pred_list = []

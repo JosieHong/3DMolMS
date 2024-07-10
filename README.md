@@ -52,11 +52,14 @@ device = torch.device("cpu")
 molnet_engine = MolNet(device, seed=42) # The random seed can be any integer. 
 
 # Load input data (here we use a CSV file as an example)
-molnet_engine.load_data(path_to_test_data='./test/input_msms.csv', batchsize=1) # Increasing the batch size if you wanna speed up.
+molnet_engine.load_data(path_to_test_data='./test/input_msms.csv') # Increasing the batch size if you wanna speed up.
 # molnet_engine.load_data(path_to_test_data='./test/input_msms.mgf') # MGF file is also supported
+# molnet_engine.load_data(path_to_test_data='./test/input_msms.pkl') # PKL file is faster. 
 
 # Predict MS/MS
 spectra = molnet_engine.pred_msms(path_to_results='./test/output_msms.mgf')
+# You could also download the checkpoint from release and set the 'path_to_checkpoint':
+# spectra = molnet_engine.pred_msms(path_to_results='./test/output_msms.mgf', path_to_checkpoint='<path to the checkpoint>')
 
 # Plot the predicted MS/MS with 3D molecular conformation
 molnet_engine.plot_msms(dir_to_img='./img/')
@@ -120,7 +123,7 @@ pip install .
 
 **Step 1**: Obtain the Pretrained Model
 
-Download the pretrained model (`molnet_pre_etkdgv3.pt.zip`) from [Google Drive](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link) or train the model yourself. For details on pretraining the model on the [QM9](https://figshare.com/collections/Quantum_chemistry_structures_and_properties_of_134_kilo_molecules/978904) dataset, refer to [PRETRAIN.md](docs/PRETRAIN.md).
+Download the pretrained model (`molnet_pre_etkdgv3.pt.zip`) from [Google Drive](https://drive.google.com/drive/folders/1fWx3d8vCPQi-U-obJ3kVL3XiRh75x5Ce?usp=drive_link) or from [Releases](https://github.com/JosieHong/3DMolMS/releases). You can also train the model from scratch. For details on pretraining the model on the [QM9](https://figshare.com/collections/Quantum_chemistry_structures_and_properties_of_134_kilo_molecules/978904) dataset, refer to [PRETRAIN.md](docs/PRETRAIN.md).
 
 **Step 2**: Prepare the Datasets
 
@@ -160,12 +163,38 @@ python ./src/scripts/preprocess.py --dataset agilent nist mona waters \
 Use the following commands to train the model. Configuration settings for the model and training process are located in `./src/molnetpack/config/molnet.yml`.
 
 ```bash
+# Train the model from pretrain: 
 python ./src/scripts/train.py --train_data ./data/qtof_etkdgv3_train.pkl \
 --test_data ./data/qtof_etkdgv3_test.pkl \
 --model_config_path ./src/molnetpack/config/molnet.yml \
 --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
 --checkpoint_path ./check_point/molnet_qtof_etkdgv3.pt \
 --transfer --resume_path ./check_point/molnet_pre_etkdgv3.pt
+
+# Train the model from scratch
+python ./src/scripts/train.py --train_data ./data/qtof_etkdgv3_train.pkl \
+--test_data ./data/qtof_etkdgv3_test.pkl \
+--model_config_path ./src/molnetpack/config/molnet.yml \
+--data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
+--checkpoint_path ./check_point/molnet_qtof_etkdgv3.pt
+```
+
+**Step 5**: Evaluation
+
+Let's evaluate the model trained above! 
+
+```bash
+# Predict the spectra: 
+python ./src/scripts/pred.py \
+--test_data ./data/qtof_etkdgv3_test.pkl \
+--model_config_path ./src/molnetpack/config/molnet.yml \
+--data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
+--resume_path ./check_point/molnet_qtof_etkdgv3.pt \
+--result_path ./result/pred_qtof_etkdgv3_test.mgf 
+
+# Evaluate the cosine similarity between experimental spectra and predicted spectra:
+python ./src/scripts/eval.py ./data/qtof_etkdgv3_test.pkl ./result/pred_qtof_etkdgv3_test.mgf \
+./eval_qtof_etkdgv3_test.csv ./eval_qtof_etkdgv3_test.png
 ```
 
 **Additional application**

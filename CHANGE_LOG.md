@@ -1,4 +1,5 @@
-* 2024.07.08 (v1.1.4): enable batched prediction. 
+* 2024.07.09 (v1.1.5): enable the local checkpoint path; add evaluation (cosine similarity) step. 
+* 2024.07.08 (v1.1.4): ~~enable batched prediction~~. 
 * 2024.03.08 (v1.1.3): add the function `save_features`, which can be used to save embedded features; these features can then be used in downstream tasks.
 * 2024.02.27 (v1.1.2): fix the independences; update ccs prediction. 
 * 2024.02.27 (v1.1.1): PyPI package release. 

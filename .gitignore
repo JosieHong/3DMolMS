@@ -132,3 +132,4 @@ dmypy.json
 
 dist/
 check_point/
+tmp/
