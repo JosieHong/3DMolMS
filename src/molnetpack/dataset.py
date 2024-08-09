@@ -103,3 +103,22 @@ class MolCCS_Dataset(Dataset):
 
 	def __getitem__(self, idx): 
 		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['ccs'], self.data[idx]['env']
+
+
+
+class MolPRE_Dataset(Dataset): 
+	def __init__(self, path): 
+		with open(path, 'rb') as file: 
+			data = pickle.load(file)
+		# tmp
+		self.data = []
+		for d in data: 
+			if 'mol' in d.keys(): 
+				self.data.append(d)
+		print('Load {} data from {}'.format(len(self.data), path))
+
+	def __len__(self): 
+		return len(self.data)
+
+	def __getitem__(self, idx): 
+		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['y']

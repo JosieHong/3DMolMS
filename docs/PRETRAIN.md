@@ -17,13 +17,13 @@ Step 1: Download the QM9 dataset [[here]](https://figshare.com/collections/Quant
 Step 2: Use the following commands to preprocess the datasets. The settings of datasets are in `./preprocess_etkdgv3.yml`. 
 
 ```bash
-python ./src/scripts/qm92pkl.py --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml 
+python ./src/qm92pkl.py --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml 
 ```
 
 Step 3: Use the following commands to pretrain the model. The settings of model and training are in `./config/molnet_pre.yml`. 
 
 ```bash
-python ./src/scripts/pretrain.py --train_data ./data/qm9_etkdgv3_train.pkl \
+python ./src/pretrain.py --train_data ./data/qm9_etkdgv3_train.pkl \
 --test_data ./data/qm9_etkdgv3_test.pkl \
 --model_config_path ./src/molnetpack/config/molnet_pre.yml \
 --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \

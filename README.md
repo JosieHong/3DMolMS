@@ -152,7 +152,7 @@ The data directory structure should look like this:
 Run the following commands to preprocess the datasets. Specify the dataset with `--dataset` and select the instrument type as `qtof`. Use `--maxmin_pick` to apply the MaxMin algorithm for selecting training molecules; otherwise, selection will be random. The dataset configurations are in `./src/molnetpack/config/preprocess_etkdgv3.yml`.
 
 ```bash
-python ./src/scripts/preprocess.py --dataset agilent nist mona waters \
+python ./src/preprocess.py --dataset agilent nist mona waters \
 --instrument_type qtof \
 --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
 --mgf_dir ./data/mgf_debug/
@@ -164,19 +164,21 @@ Use the following commands to train the model. Configuration settings for the mo
 
 ```bash
 # Train the model from pretrain: 
-python ./src/scripts/train.py --train_data ./data/qtof_etkdgv3_train.pkl \
+python ./src/train.py --train_data ./data/qtof_etkdgv3_train.pkl \
 --test_data ./data/qtof_etkdgv3_test.pkl \
 --model_config_path ./src/molnetpack/config/molnet.yml \
 --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
 --checkpoint_path ./check_point/molnet_qtof_etkdgv3.pt \
---transfer --resume_path ./check_point/molnet_pre_etkdgv3.pt
+--transfer --resume_path ./check_point/molnet_pre_etkdgv3.pt \
+--ex_model_path ./check_point/molnet_qtof_etkdgv3_jit.pt
 
 # Train the model from scratch
-python ./src/scripts/train.py --train_data ./data/qtof_etkdgv3_train.pkl \
+python ./src/train.py --train_data ./data/qtof_etkdgv3_train.pkl \
 --test_data ./data/qtof_etkdgv3_test.pkl \
 --model_config_path ./src/molnetpack/config/molnet.yml \
 --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
---checkpoint_path ./check_point/molnet_qtof_etkdgv3.pt
+--checkpoint_path ./check_point/molnet_qtof_etkdgv3.pt \
+--ex_model_path ./check_point/molnet_qtof_etkdgv3_jit.pt
 ```
 
 **Step 5**: Evaluation
@@ -185,7 +187,7 @@ Let's evaluate the model trained above!
 
 ```bash
 # Predict the spectra: 
-python ./src/scripts/pred.py \
+python ./src/pred.py \
 --test_data ./data/qtof_etkdgv3_test.pkl \
 --model_config_path ./src/molnetpack/config/molnet.yml \
 --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
@@ -193,7 +195,7 @@ python ./src/scripts/pred.py \
 --result_path ./result/pred_qtof_etkdgv3_test.mgf 
 
 # Evaluate the cosine similarity between experimental spectra and predicted spectra:
-python ./src/scripts/eval.py ./data/qtof_etkdgv3_test.pkl ./result/pred_qtof_etkdgv3_test.mgf \
+python ./src/eval.py ./data/qtof_etkdgv3_test.pkl ./result/pred_qtof_etkdgv3_test.mgf \
 ./eval_qtof_etkdgv3_test.csv ./eval_qtof_etkdgv3_test.png
 ```
 

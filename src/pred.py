@@ -25,10 +25,10 @@ from PIL import ImageFilter
 from rdkit.Chem import Draw
 from rdkit.Chem import AllChem
 
-from molnetpack.molnet import MolNet_MS
-from molnetpack.dataset import Mol_Dataset
-from molnetpack.data_utils import csv2pkl_wfilter, nce2ce, precursor_calculator
-from molnetpack.data_utils import filter_spec, mgf2pkl, ms_vec2dict
+from molnetpack import MolNet_MS
+from molnetpack import Mol_Dataset
+from molnetpack import csv2pkl_wfilter, nce2ce, precursor_calculator
+from molnetpack import filter_spec, mgf2pkl, ms_vec2dict
 
 global batch_size
 batch_size = 1

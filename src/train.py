@@ -10,8 +10,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from molnetpack.model import MolNet_MS
-from molnetpack.dataset import MolMS_Dataset
+from molnetpack import MolNet_MS
+from molnetpack import MolMS_Dataset
 
 def get_lr(optimizer):
 	for param_group in optimizer.param_groups:
@@ -33,7 +33,7 @@ def train_step(model, device, loader, optimizer, batch_size, num_points):
 			y = y.to(device=device, dtype=torch.float)
 			env = env.to(device=device, dtype=torch.float)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
-
+			
 			optimizer.zero_grad()
 			model.train()
 			pred = model(x, env, idx_base) 
@@ -213,5 +213,19 @@ if __name__ == "__main__":
 
 	if args.ex_model_path != '': # export the model
 		print('Export the model...')
-		model_scripted = torch.jit.script(model) # Export to TorchScript
-		model_scripted.save(args.ex_model_path) # Save
+		# model_scripted = torch.jit.script(model) # Export to TorchScript
+		# model_scripted.save(args.ex_model_path) # Save
+
+		print('Export the traced model...')
+		batch_size = config['train']['batch_size']  # Set to the desired batch size
+		num_points = 300  # Replace with your actual num_points value
+		
+		# Create example inputs with the same data types and shapes as expected by your model
+		x = torch.randn(batch_size, 21, num_points, device=device, dtype=torch.float)
+		env = torch.randn(batch_size, 6, device=device, dtype=torch.float)
+		idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
+		example_inputs = (x, env, idx_base)
+
+		model.eval()
+		traced_model = torch.jit.trace(model, example_inputs)
+		torch.jit.save(traced_model, args.ex_model_path)

@@ -1,8 +1,3 @@
-'''
-Date: 2023-10-03 21:09:14
-LastEditors: yuhhong
-LastEditTime: 2023-10-20 17:16:17
-'''
 import os
 import argparse
 import numpy as np
@@ -14,27 +9,26 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from molnetpack.model import MolNet_Oth
-from molnetpack.dataset import MolCCS_Dataset
+from molnetpack import MolNet_Oth
+from molnetpack import MolPRE_Dataset
 
 def get_lr(optimizer):
 	for param_group in optimizer.param_groups:
 		return param_group['lr']
 
-def train_step(model, device, loader, optimizer, batch_size, num_points): 
+def train_step(model, device, loader, optimizer, batch_size, num_points, prop_index): 
 	accuracy = 0
 	with tqdm(total=len(loader)) as bar:
-		for step, batch in enumerate(loader):
-			_, x, y, env = batch
+		for step, batch in enumerate(loader): 
+			_, x, y = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
-			y = y.to(device=device, dtype=torch.float)
+			y = y[:, prop_index].to(device=device, dtype=torch.float).unsqueeze(1)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
-			env = env.to(device=device, dtype=torch.float)
 
 			optimizer.zero_grad()
 			model.train()
-			pred = model(x, env, idx_base) 
+			pred = model(x, None, idx_base) 
 			loss = nn.MSELoss()(pred, y)
 			loss.backward()
 
@@ -47,20 +41,19 @@ def train_step(model, device, loader, optimizer, batch_size, num_points):
 			accuracy += torch.abs(pred - y).mean().item()
 	return accuracy / (step + 1)
 
-def eval_step(model, device, loader, batch_size, num_points): 
+def eval_step(model, device, loader, batch_size, num_points, prop_index): 
 	model.eval()
 	accuracy = 0
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader):
-			_, x, y, env = batch
+			_, x, y = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
-			y = y.to(device=device, dtype=torch.float)
+			y = y[:, prop_index].to(device=device, dtype=torch.float).unsqueeze(1)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
-			env = env.to(device=device, dtype=torch.float)
 
 			with torch.no_grad(): 
-				pred = model(x, env, idx_base) 
+				pred = model(x, None, idx_base) 
 				
 			bar.set_description('Eval')
 			bar.update(1)
@@ -77,21 +70,21 @@ def init_random_seed(seed):
 
 
 if __name__ == "__main__": 
-	parser = argparse.ArgumentParser(description='Molecular Collisional Cross Section Prediction (Train)')
-	parser.add_argument('--train_data', type=str, default='./data/allccs_etkdgv3_train.pkl',
+	parser = argparse.ArgumentParser(description='Molecular Mass Spectra Prediction (Pre-train)')
+	parser.add_argument('--train_data', type=str, default='./data/qm9_etkdg_train.pkl',
 						help='path to training data (pkl)')
-	parser.add_argument('--test_data', type=str, default='./data/allccs_etkdgv3_test.pkl',
+	parser.add_argument('--test_data', type=str, default='./data/qm9_etkdg_test.pkl',
 						help='path to test data (pkl)')
-	parser.add_argument('--model_config_path', type=str, default='./config/molnet_rt.yml',
+	parser.add_argument('--prop_index', type=int, default=3,
+						help='Index of property')
+	parser.add_argument('--model_config_path', type=str, default='./config/molnet.yml',
 						help='path to model and training configuration')
-	parser.add_argument('--data_config_path', type=str, default='./config/preprocess_etkdgv3.yml',
+	parser.add_argument('--data_config_path', type=str, default='./config/preprocess_etkdg.yml',
 						help='path to configuration')
-	parser.add_argument('--checkpoint_path', type=str, default = './check_point/molnet_ccs_etkdgv3.pt',
+	parser.add_argument('--checkpoint_path', type=str, default = './check_point/molnet_pre_etkdg.pt',
 						help='Path to save checkpoint')
 	parser.add_argument('--resume_path', type=str, default='', 
 						help='Path to pretrained model')
-	parser.add_argument('--transfer', action='store_true', 
-						help='Whether to load the pretrained encoder')
 	parser.add_argument('--ex_model_path', type=str, default='',
 						help='Path to export the whole model (structure & weights)')
 
@@ -109,14 +102,14 @@ if __name__ == "__main__":
 	print('Load the model & training configuration from {}'.format(args.model_config_path))
 
 	# 1. Data
-	train_set = MolCCS_Dataset(args.train_data)
+	train_set = MolPRE_Dataset(args.train_data)
 	train_loader = DataLoader(
 					train_set,
 					batch_size=config['train']['batch_size'], 
 					shuffle=True, 
 					num_workers=config['train']['num_workers'], 
 					drop_last=True)
-	valid_set = MolCCS_Dataset(args.test_data)
+	valid_set = MolPRE_Dataset(args.test_data)
 	valid_loader = DataLoader(
 					valid_set,
 					batch_size=config['train']['batch_size'], 
@@ -135,16 +128,7 @@ if __name__ == "__main__":
 	# 3. Train
 	optimizer = optim.AdamW(model.parameters(), lr=config['train']['lr'])
 	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10)
-	if args.transfer and args.resume_path != '': 
-		print("Load the pretrained encoder (freeze the encoder)...")
-		state_dict = torch.load(args.resume_path, map_location=device)['model_state_dict']
-		encoder_dict = {}
-		for name, param in state_dict.items(): 
-			if not name.startswith("decoder"): 
-				param.requires_grad = False # freeze the encoder
-				encoder_dict[name] = param
-		model.load_state_dict(encoder_dict, strict=False)
-	elif args.resume_path != '':
+	if args.resume_path != '':
 		print("Load the checkpoints...")
 		model.load_state_dict(torch.load(args.resume_path, map_location=device)['model_state_dict'])
 		optimizer.load_state_dict(torch.load(args.resume_path, map_location=device)['optimizer_state_dict'])
@@ -156,14 +140,18 @@ if __name__ == "__main__":
 		os.makedirs(checkpoint_dir, exist_ok = True)
 
 	best_valid_mae = 999999
-	early_stop_step = 20
+	early_stop_step = 10
 	early_stop_patience = 0
 	for epoch in range(1, config['train']['epochs'] + 1): 
 		print("\n=====Epoch {}".format(epoch))
 		train_mae = train_step(model, device, train_loader, optimizer, 
-								batch_size=config['train']['batch_size'], num_points=config['model']['max_atom_num'])
+								batch_size=config['train']['batch_size'], 
+								num_points=config['model']['max_atom_num'], 
+								prop_index=args.prop_index)
 		valid_mae = eval_step(model, device, valid_loader, 
-								batch_size=config['train']['batch_size'], num_points=config['model']['max_atom_num'])
+								batch_size=config['train']['batch_size'], 
+								num_points=config['model']['max_atom_num'], 
+								prop_index=args.prop_index)
 		print("Train: MAE: {}, \nValidation: MAE: {}".format(train_mae, valid_mae))
 
 		if valid_mae < best_valid_mae: 

@@ -8,7 +8,7 @@ from rdkit import Chem
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
 
-from molnetpack.data_utils import filter_mol, sdf2pkl_with_cond
+from molnetpack import filter_mol, sdf2pkl_with_cond
 
 
 

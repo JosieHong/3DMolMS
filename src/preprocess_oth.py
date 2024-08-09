@@ -11,7 +11,7 @@ from rdkit import Chem
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
 
-from molnetpack.data_utils import conformation_array, filter_mol, check_atom
+from molnetpack import conformation_array, filter_mol, check_atom
 
 
 

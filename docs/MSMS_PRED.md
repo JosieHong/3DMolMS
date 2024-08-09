@@ -54,7 +54,7 @@ Please notice that the unsupported input will be filtered out automatically when
 Step 2: Predict the MS/MS spectra using the following command: 
 
 ```bash
-python ./src/scripts/pred.py \
+python ./src/pred.py \
 --test_data ./demo/demo_input.csv \
 --model_config_path ./src/molnetpack/config/molnet.yml \
 --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
