@@ -122,3 +122,37 @@ class MolPRE_Dataset(Dataset):
 
 	def __getitem__(self, idx): 
 		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['y']
+
+
+
+class MolCSV_Dataset(Dataset): 
+	def __init__(self, x, mode='path'): 
+		assert mode in ['path', 'data']
+		if mode == 'path': 
+			with open(x, 'rb') as file: 
+				self.data = pickle.load(file)
+			print('Load {} data from {}'.format(len(self.data), x))
+		elif mode == 'data': 
+			self.data = x
+
+	def __len__(self): 
+		return len(self.data)
+
+	def __getitem__(self, idx): 
+		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['prop']
+
+class MolCSV_Test_Dataset(Dataset): 
+	def __init__(self, x, mode='path'): 
+		assert mode in ['path', 'data']
+		if mode == 'path': 
+			with open(x, 'rb') as file: 
+				self.data = pickle.load(file)
+			print('Load {} data from {}'.format(len(self.data), x))
+		elif mode == 'data': 
+			self.data = x
+
+	def __len__(self): 
+		return len(self.data)
+
+	def __getitem__(self, idx): 
+		return self.data[idx]['title'], self.data[idx]['mol']

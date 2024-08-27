@@ -52,14 +52,18 @@ device = torch.device("cpu")
 molnet_engine = MolNet(device, seed=42) # The random seed can be any integer. 
 
 # Load input data (here we use a CSV file as an example)
-molnet_engine.load_data(path_to_test_data='./test/input_msms.csv')
+molnet_engine.load_data(path_to_test_data='./test/input_msms.csv') # Increasing the batch size if you wanna speed up.
 # molnet_engine.load_data(path_to_test_data='./test/input_msms.mgf') # MGF file is also supported
+# molnet_engine.load_data(path_to_test_data='./test/input_msms.pkl') # PKL file is faster. 
 
 # Predict MS/MS
-spectra = molnet_engine.pred_msms(path_to_results='./test/output_msms.mgf')
+spectra1 = molnet_engine.pred_msms(path_to_results='./test/output_qtof_msms.mgf', instrument='qtof')
+# You could also download the checkpoint from release and set the 'path_to_checkpoint':
+# spectra = molnet_engine.pred_msms(path_to_results='./test/output_msms.mgf', path_to_checkpoint='<path to the checkpoint>')
+# Instrument can be 'qtof' or 'orbitrap'. 
 
 # Plot the predicted MS/MS with 3D molecular conformation
-molnet_engine.plot_msms(dir_to_img='./img/')
+molnet_engine.plot_msms(dir_to_img='./img/', instrument='qtof')
 ```
 
 For CCS prediction, please use the following codes after instantiating a MolNet object. 
@@ -112,6 +116,16 @@ If you use 3DMolMS in your research, please cite our paper:
   pages={btad354},
   year={2023},
   publisher={Oxford University Press}
+}
+@article{hong2024enhanced,
+  title={Enhanced structure-based prediction of chiral stationary phases for chromatographic enantioseparation from 3D molecular conformations},
+  author={Hong, Yuhui and Welch, Christopher J and Piras, Patrick and Tang, Haixu},
+  journal={Analytical Chemistry},
+  volume={96},
+  number={6},
+  pages={2351--2359},
+  year={2024},
+  publisher={ACS Publications}
 }
 ```
 

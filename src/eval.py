@@ -65,15 +65,23 @@ def main(pickle_file, mgf_file):
     pkl_dict = {spec['title']: spec['spec'] for spec in pkl_spectra}
     mgf_dict = {spec['params']['title']: spec for spec in mgf_spectra}
     
-    # Calculate cosine similarities
-    similarities = {}
+    # Calculate cosine similarities and extract precursor types
+    result = []
     for title, _ in tqdm(pkl_dict.items()): 
         if title in mgf_dict:
             similarity = cal_cosine_similarity(pkl_dict[title], mgf_dict[title])
             if similarity is not None:
-                similarities[title] = similarity
+                precursor_type = mgf_dict[title]['params'].get('precursor_type', 'Unknown')
+                smiles = mgf_dict[title]['params'].get('smiles', 'Unknown')
+                collision_energy = mgf_dict[title]['params'].get('collision_energy', 'Unknown')
+                result.append({'title': title, 
+                                'smiles': smiles,
+                                'collision_energy': collision_energy,
+                                'precursor_type': precursor_type, 
+                                'similarity': similarity, 
+                            })
     
-    return similarities
+    return result
 
 
 
@@ -92,21 +100,26 @@ if __name__ == '__main__':
     results = main(pickle_file, mgf_file)
 
     # Print results
-    for title, similarity in results.items():
-        print(f"Title: {title}, Cosine Similarity: {similarity}")
+    # for item in results:
+    #     print(f"Title: {item['title']}, Cosine Similarity: {item['similarity']}")
 
     # Save results to file
-    df_results = pd.DataFrame(list(results.items()), columns=['Title', 'Cosine Similarity'])
+    df_results = pd.DataFrame(results)
+    print(df_results.head())
     df_results.to_csv(res_file, index=False)
+
+    # Plot boxplot
+    print('Mean cosine similarity by precursor type:')
+    print(df_results.groupby('precursor_type')['similarity'].mean())
 
     # Plot histogram
     plt.figure(figsize=(8, 6))
-    plt.hist(df_results['Cosine Similarity'].tolist(), bins=50, edgecolor='black')
+    plt.hist(df_results['similarity'].tolist(), bins=50, edgecolor='black')
     plt.title('Histogram of Cosine Similarities')
     plt.xlabel('Cosine Similarity')
     plt.ylabel('Frequency')
     plt.grid(True, alpha=0.3)
     plt.savefig(plot_file)
     plt.close()
-
+    print(f'Histogram of cosine similarities saved to {plot_file}')
     

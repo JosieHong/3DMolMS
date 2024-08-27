@@ -1,3 +1,5 @@
+* 2024.08.27 (v1.1.7): update MolConv to MolConv2. 
+* 2024.08.19 (v1.1.6): release retention time model, orbitrap ms/ms model, and codes for fine-tuning our model on customized data; move the model weights on google drive to GitHub release. 
 * 2024.07.09 (v1.1.5): enable the local checkpoint path; add evaluation (cosine similarity) step. 
 * 2024.07.08 (v1.1.4): ~~enable batched prediction~~. 
 * 2024.03.08 (v1.1.3): add the function `save_features`, which can be used to save embedded features; these features can then be used in downstream tasks.

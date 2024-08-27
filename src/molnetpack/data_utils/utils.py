@@ -95,9 +95,8 @@ def parse_collision_energy(ce_str, precursor_mz, charge=1):
 		r"^nce=[\d]+[.]?[\d]*% [\d]+[.]?[\d]*ev$": lambda x: float(x.split()[1].rstrip("ev")),
 		# MassBank
 		r"^[\d]+[.]?[\d]*[ ]?V$": lambda x: float(x.rstrip(" V")), 
-		# r"^ramp [\d]+[.]?[\d]*-[\d]+[.]?[\d]* (ev|v)$":  lambda x: float((float(re.split(' |-', x)[1]) + float(re.split(' |-', x)[2])) /2), # j0siee: cannot process this ramp ce
-		r"^[\d]+[.]?[\d]*-[\d]+[.]?[\d]*$": lambda x: float((float(x.split('-')[0]) + float(x.split('-')[1])) /2), 
 		r"^hcd[\d]+[.]?[\d]*$": lambda x: float(x.lstrip('hcd')), 
+		r"^[\d]+HCD$": lambda x: float(x.rstrip("HCD")), # 35HCD
 	}
 	for k, v in matches_ev.items(): 
 		if re.match(k, ce_str): 
@@ -106,11 +105,13 @@ def parse_collision_energy(ce_str, precursor_mz, charge=1):
 	# match collision energy (NCE)
 	matches_nce = {
 		# MassBank
-		r"^[\d]+[.]?[\d]*[ ]?[%]? \(nominal\)$": lambda x: float(x.rstrip('% (nominal)'))*100, 
+		r"^[\d]+[.]?[\d]*[ ]?[%]? \(nominal\)$": lambda x: float(x.rstrip('% (nominal)')), 
 		r"^[\d]+[.]?[\d]*[ ]?nce$": lambda x: float(x.rstrip(' nce')), 
 		r"^[\d]+[.]?[\d]*[ ]?\(nce\)$": lambda x: float(x.rstrip(' (nce)')), 
-		r"^NCE=[\d]+\%$": lambda x: float(x.lstrip('NCE=').rstrip('%'))*100, 
-		# casmi
+		r"^NCE=[\d]+\%$": lambda x: float(x.lstrip('NCE=').rstrip('%')), 
+        r"^[\d]+[.]?[\d]*\([Nn][Cc][Ee]\)$": lambda x: float(x.split('(')[0]), # 90(NCE)
+        r"^HCD \(NCE [\d]+[.]?[\d]*%\)$": lambda x: float(x.split(' ')[-1].rstrip('%)')), # HCD (NCE 40%)
+		# CASMI
 		r"^[\d]+[.]?[\d]*[ ]?\(nominal\)$": lambda x: float(x.rstrip("(nominal)").rstrip(' ')), 
 	}
 	for k, v in matches_nce.items(): 

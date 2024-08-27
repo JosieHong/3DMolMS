@@ -121,7 +121,9 @@ if __name__ == "__main__":
 	with open(args.model_config_path, 'r') as f: 
 		config = yaml.load(f, Loader=yaml.FullLoader)
 	print('Load the model & training configuration from {}'.format(args.model_config_path))
-
+	# configuration check
+	assert config['model']['batch_size'] == config['train']['batch_size'], "Batch size should be the same in model and training configuration"
+	
 	# 1. Data
 	# convert precursor type to encoded precursor type for filtering
 	with open(args.data_config_path, 'r') as f: 

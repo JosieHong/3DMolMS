@@ -1,4 +1,4 @@
-# public exp ===========================================================
+# pretrain ===========================================================
 qm9:
   atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
   min_molmass: 50
@@ -6,6 +6,7 @@ qm9:
   max_atom_num: 300
   min_atom_num: 10
 
+# qtof ===============================================================
 agilent_qtof: 
   intrument_type: ['ESI-QTOF']
   instrument: [Unknown]
@@ -33,7 +34,9 @@ nist_qtof:
   ppm_tolerance: 10
 
 mona_qtof:
-  intrument_type: ['LC-ESI-QTOF', 'Q-TOF', 'QTOF', 'LC-QTOF', 'LC-Q-TOF/MS', 'ESI-QTOF', 'Q-TOF', 'QTOF']
+  instrument_type: ['LC-ESI-QTOF', 
+                    'ESI-QFT'] 
+  instrument: ['Agilent 6530 Q-TOF', 'Waters Xevo G2 Q-Tof', 'Agilent qTOF 6545', 'Agilent 6550 iFunnel']
   ms_level: 'MS2'
   atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
   precursor_type: ['[M+H]+', '[M-H]-']
@@ -56,17 +59,84 @@ waters_qtof:
   min_atom_num: 10
   ppm_tolerance: 10
 
+gnps_qtof: 
+  instrument_type: ['hcd']
+  instrument: ['qtof', 'quadrupole']
+  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
+  precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
+  min_mz: 50
+  max_mz: 1500
+  min_peak_num: 5
+  max_atom_num: 300
+  min_atom_num: 10
+  ppm_tolerance: 10
+
+# orbitrap =====================================================================
+nist_orbitrap: 
+  instrument_type: HCD
+  instrument: ['Thermo Finnigan Elite Orbitrap']
+  ms_level: 'MS2'
+  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
+  precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
+  min_mz: 50
+  max_mz: 1500
+  min_peak_num: 5
+  max_atom_num: 300
+  min_atom_num: 10
+  ppm_tolerance: 5
+
+nist23_orbitrap: 
+  instrument_type: HCD
+  instrument: ['Thermo Finnigan Elite Orbitrap']
+  ms_level: 'MS2'
+  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
+  precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
+  min_mz: 50
+  max_mz: 1500
+  min_peak_num: 5
+  max_atom_num: 300
+  min_atom_num: 10
+  ppm_tolerance: 5
+
+mona_orbitrap:
+  intrument_type: ['LC-ESI-QFT', 'LC-ESI-Q-Orbitrap']
+  instrument: ['Thermo Q Exactive HF', 'Q Exactive Orbitrap (Thermo Scientific)', 'Q Exactive Plus Orbitrap Thermo Scientific']
+  ms_level: 'MS2'
+  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
+  precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
+  min_mz: 50
+  max_mz: 1500
+  min_peak_num: 5
+  max_atom_num: 300
+  min_atom_num: 10
+  ppm_tolerance: 5
+
+gnps_orbitrap: 
+  instrument_type: ['hcd']
+  instrument: ['orbitrap']
+  atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
+  precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
+  min_mz: 50
+  max_mz: 1500
+  min_peak_num: 5
+  max_atom_num: 300
+  min_atom_num: 10
+  ppm_tolerance: 5
+
+# retention time ===============================================================
 metlin_rt:
   atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
   max_atom_num: 300
   min_atom_num: 10
 
+# collision cross section =======================================================
 allccs:
   atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
   max_atom_num: 300
   min_atom_num: 10
   precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
 
+# reference metabolite ==========================================================
 hmdb: 
   atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
   max_atom_num: 300
@@ -79,6 +149,7 @@ refmet:
   min_atom_num: 10
   precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
 
+# test ==========================================================================
 all:
   atom_type: ['C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I']
   precursor_type: ['[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+']
@@ -89,7 +160,7 @@ all:
   min_atom_num: 10
   ppm_tolerance: 10
   
-# encoding ===========================================================
+# encoding ======================================================================
 encoding:
   resolution: 0.2
   max_mz: 1500

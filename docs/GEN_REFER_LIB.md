@@ -1,6 +1,6 @@
 # Generate reference library for molecular identification
 
-
+3DMolMS can be used to generate a reference library of small molecule MS/MS spectra, which can then be used for small molecule identification through MS/MS searching. 
 
 ## Using molecules from HMDB
 

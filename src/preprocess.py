@@ -3,6 +3,7 @@ import argparse
 import yaml
 from tqdm import tqdm
 import numpy as np
+import pandas as pd
 import pickle
 from pyteomics import mgf
 
@@ -25,7 +26,7 @@ if __name__ == "__main__":
 						help='path to pkl data')
 	parser.add_argument('--mgf_dir', type=str, default='',
 						help='path to mgf data') # output mgf file for debuging and data analysis
-	parser.add_argument('--dataset', type=str, nargs='+', required=True, choices=['agilent', 'nist', 'mona', 'waters'], 
+	parser.add_argument('--dataset', type=str, nargs='+', required=True, choices=['agilent', 'nist', 'mona', 'waters', 'gnps'], 
 						help='dataset name')
 	parser.add_argument('--instrument_type', type=str, nargs='+', required=True, choices=['qtof', 'orbitrap'], 
 						help='dataset name')
@@ -37,6 +38,12 @@ if __name__ == "__main__":
 						help='path to configuration')
 	args = parser.parse_args()
 
+	# create the directory if not exists
+	if not os.path.exists(args.pkl_dir): 
+		os.makedirs(args.pkl_dir)
+	if args.mgf_dir != '' and not os.path.exists(args.mgf_dir): 
+		os.makedirs(args.mgf_dir)
+
 	assert args.train_ratio < 1. 
 
 	if 'agilent' in args.dataset:
@@ -47,8 +54,12 @@ if __name__ == "__main__":
 		assert os.path.exists(os.path.join(args.raw_dir, 'hr_msms_nist.SDF'))
 	if 'mona' in args.dataset:
 		assert os.path.exists(os.path.join(args.raw_dir, 'MoNA-export-All_LC-MS-MS_QTOF.sdf'))
+		assert os.path.exists(os.path.join(args.raw_dir, 'MoNA-export-All_LC-MS-MS_Orbitrap.sdf'))
 	if 'waters' in args.dataset:
 		assert os.path.exists(os.path.join(args.raw_dir, 'waters_qtof.mgf'))
+	if 'gnps' in args.dataset:
+		assert os.path.exists(os.path.join(args.raw_dir, 'ALL_GNPS_cleaned.mgf'))
+		assert os.path.exists(os.path.join(args.raw_dir, 'ALL_GNPS_cleaned.csv'))
 	
 	# load the configurations
 	with open(args.data_config_path, 'r') as f: 
@@ -64,10 +75,42 @@ if __name__ == "__main__":
 	if 'nist' in args.dataset: 
 		origin_spectra['nist'] = sdf2mgf(path=os.path.join(args.raw_dir, 'hr_msms_nist.SDF'), prefix='nist20')
 	if 'mona' in args.dataset: 
-		origin_spectra['mona'] = sdf2mgf(path=os.path.join(args.raw_dir, 'MoNA-export-All_LC-MS-MS_QTOF.sdf'), prefix='mona_qtof')
+		spectra1 = sdf2mgf(path=os.path.join(args.raw_dir, 'MoNA-export-All_LC-MS-MS_QTOF.sdf'), prefix='mona_qtof')
+		spectra2 = sdf2mgf(path=os.path.join(args.raw_dir, 'MoNA-export-All_LC-MS-MS_Orbitrap.sdf'), prefix='mona_orbitrap')
+		origin_spectra['mona'] = spectra1 + spectra2
 	if 'waters' in args.dataset:
 		origin_spectra['waters'] = mgf.read(os.path.join(args.raw_dir, 'waters_qtof.mgf'))
 		print('Load {} data from {}'.format(len(origin_spectra['waters']), os.path.join(args.raw_dir, 'waters_qtof.mgf')))
+	if 'gnps' in args.dataset: 
+		raw_spectra = mgf.read(os.path.join(args.raw_dir, 'ALL_GNPS_cleaned.mgf'))
+		all_metadata = pd.read_csv(os.path.join(args.raw_dir, 'ALL_GNPS_cleaned.csv'))
+		all_metadata = all_metadata[["spectrum_id", "Adduct", "Precursor_MZ", "ExactMass", "Ion_Mode", 
+									"msMassAnalyzer", "msDissociationMethod", "Smiles", "InChIKey_smiles", "collision_energy"]]
+		all_metadata['collision_energy'] = all_metadata['collision_energy'].fillna("Unknown")
+		all_metadata = all_metadata.dropna()
+		all_metadata['Adduct'] = all_metadata['Adduct'].apply(lambda x: x[:-2]+x[-1:])
+		all_metadata['collision_energy'] = all_metadata['collision_energy'].astype(str)
+		all_metadata['Ion_Mode'] = all_metadata['Ion_Mode'].apply(lambda x: x.upper())
+		all_metadata = all_metadata.rename(columns={"spectrum_id": "title", 
+													"Adduct": "precursor_type",
+													"Precursor_MZ": "precursor_mz",
+													"ExactMass": "molmass", 
+													"Ion_Mode": "ionmode",
+													"msMassAnalyzer": "source_instrument",
+													"msDissociationMethod": "instrument_type",
+													"Smiles": "smiles",
+													"InChIKey_smiles": "inchi_key"}).set_index('title').to_dict('index')
+		# add meta-data into the spectra
+		tmp_spectra = []
+		for idx, spec in enumerate(tqdm(raw_spectra)): 
+			title = spec['params']['title']
+			if title in all_metadata.keys(): 
+				metadata = all_metadata[title]
+				spec['params'] = metadata
+				spec['params']['title'] = 'gnps_'+str(idx)
+				tmp_spectra.append(spec)
+		origin_spectra['gnps'] = tmp_spectra
+		print('Read {} data from {}'.format(len(origin_spectra['gnps']), os.path.join(args.raw_dir, 'ALL_GNPS_cleaned.mgf')))
 
 	# 2. filter the spectra
 	# 3. split spectra into training and test set according to smiles
@@ -95,7 +138,7 @@ if __name__ == "__main__":
 		smiles_list = list(set(smiles_list))
 		
 		# save mgf for debuging
-		if args.mgf_dir != '':
+		if args.mgf_dir != '': 
 			mgf.write(spectra, output=os.path.join(args.mgf_dir, '{}_{}.mgf'.format(ins, '_'.join(args.dataset))))
 
 		if args.maxmin_pick: 

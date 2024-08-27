@@ -2,9 +2,11 @@
 
 [![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa] (free for academic use) 
 
-**3D** **Mol**ecular Network for **M**ass **S**pectra Prediction (3DMolMS) is a deep neural network model to predict the MS/MS spectra of compounds from their 3D conformations. This model's molecular representation, learned through MS/MS prediction tasks, can be further applied to enhance performance in other molecular-related tasks, such as predicting retention times and collision cross sections. 
+**3D** **Mol**ecular Network for **M**ass **S**pectra Prediction (3DMolMS) is a deep neural network model to predict the MS/MS spectra of compounds from their 3D conformations. This model's molecular representation, learned through MS/MS prediction tasks, can be further applied to enhance performance in other molecular-related tasks, such as predicting retention times (RT) and collision cross sections (CCS). 
 
 [Read our paper in Bioinformatics](https://academic.oup.com/bioinformatics/article/39/6/btad354/7186501) | [Try our online service at GNPS](https://spectrumprediction.gnps2.org) | [Install from PyPI](https://pypi.org/project/molnetpack/)
+
+The changes log can be found at [[CHANGE_LOG.md]](./CHANGE_LOG.md). 
 
 ## Installation
 
@@ -57,12 +59,13 @@ molnet_engine.load_data(path_to_test_data='./test/input_msms.csv') # Increasing 
 # molnet_engine.load_data(path_to_test_data='./test/input_msms.pkl') # PKL file is faster. 
 
 # Predict MS/MS
-spectra = molnet_engine.pred_msms(path_to_results='./test/output_msms.mgf')
+spectra1 = molnet_engine.pred_msms(path_to_results='./test/output_qtof_msms.mgf', instrument='qtof')
 # You could also download the checkpoint from release and set the 'path_to_checkpoint':
 # spectra = molnet_engine.pred_msms(path_to_results='./test/output_msms.mgf', path_to_checkpoint='<path to the checkpoint>')
+# Instrument can be 'qtof' or 'orbitrap'. 
 
 # Plot the predicted MS/MS with 3D molecular conformation
-molnet_engine.plot_msms(dir_to_img='./img/')
+molnet_engine.plot_msms(dir_to_img='./img/', instrument='qtof')
 ```
 
 For CCS prediction, please use the following codes after instantiating a MolNet object. 
@@ -152,10 +155,10 @@ The data directory structure should look like this:
 Run the following commands to preprocess the datasets. Specify the dataset with `--dataset` and select the instrument type as `qtof`. Use `--maxmin_pick` to apply the MaxMin algorithm for selecting training molecules; otherwise, selection will be random. The dataset configurations are in `./src/molnetpack/config/preprocess_etkdgv3.yml`.
 
 ```bash
-python ./src/preprocess.py --dataset agilent nist mona waters \
---instrument_type qtof \
+python ./src/preprocess.py --dataset agilent nist mona waters gnps \
+--instrument_type qtof orbitrap \
 --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
---mgf_dir ./data/mgf_debug/
+--mgf_dir ./data/mgf_debug/ 
 ```
 
 **Step 4**: Train the Model
@@ -164,6 +167,7 @@ Use the following commands to train the model. Configuration settings for the mo
 
 ```bash
 # Train the model from pretrain: 
+# Q-TOF (Orbitrap is ignored here.): 
 python ./src/train.py --train_data ./data/qtof_etkdgv3_train.pkl \
 --test_data ./data/qtof_etkdgv3_test.pkl \
 --model_config_path ./src/molnetpack/config/molnet.yml \
@@ -173,12 +177,20 @@ python ./src/train.py --train_data ./data/qtof_etkdgv3_train.pkl \
 --ex_model_path ./check_point/molnet_qtof_etkdgv3_jit.pt
 
 # Train the model from scratch
+# Q-TOF: 
 python ./src/train.py --train_data ./data/qtof_etkdgv3_train.pkl \
 --test_data ./data/qtof_etkdgv3_test.pkl \
 --model_config_path ./src/molnetpack/config/molnet.yml \
 --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
 --checkpoint_path ./check_point/molnet_qtof_etkdgv3.pt \
 --ex_model_path ./check_point/molnet_qtof_etkdgv3_jit.pt
+# Orbitrap: 
+python ./src/train.py --train_data ./data/orbitrap_etkdgv3_train.pkl \
+--test_data ./data/orbitrap_etkdgv3_test.pkl \
+--model_config_path ./src/molnetpack/config/molnet.yml \
+--data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
+--checkpoint_path ./check_point/molnet_orbitrap_etkdgv3.pt \
+--ex_model_path ./check_point/molnet_orbitrap_etkdgv3_jit.pt 
 ```
 
 **Step 5**: Evaluation
@@ -187,27 +199,35 @@ Let's evaluate the model trained above!
 
 ```bash
 # Predict the spectra: 
+# Q-TOF: 
 python ./src/pred.py \
 --test_data ./data/qtof_etkdgv3_test.pkl \
 --model_config_path ./src/molnetpack/config/molnet.yml \
 --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
 --resume_path ./check_point/molnet_qtof_etkdgv3.pt \
 --result_path ./result/pred_qtof_etkdgv3_test.mgf 
+# Orbitrap: 
+python ./src/pred.py \
+--test_data ./data/orbitrap_etkdgv3_test.pkl \
+--model_config_path ./src/molnetpack/config/molnet.yml \
+--data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
+--resume_path ./check_point/molnet_orbitrap_etkdgv3.pt \
+--result_path ./result/pred_orbitrap_etkdgv3_test.mgf 
 
 # Evaluate the cosine similarity between experimental spectra and predicted spectra:
+# Q-TOF: 
 python ./src/eval.py ./data/qtof_etkdgv3_test.pkl ./result/pred_qtof_etkdgv3_test.mgf \
 ./eval_qtof_etkdgv3_test.csv ./eval_qtof_etkdgv3_test.png
+# Orbitrap: 
+python ./src/eval.py ./data/orbitrap_etkdgv3_test.pkl ./result/pred_orbitrap_etkdgv3_test.mgf \
+./eval_orbitrap_etkdgv3_test.csv ./eval_orbitrap_etkdgv3_test.png
 ```
 
 **Additional application**
 
-3DMolMS is also capable of predicting molecular properties and generating reference libraries for molecular identification. Examples of such applications include retention time prediction and collision cross-section prediction. For more details, refer to [PROP_PRED.md](docs/PROP_PRED.md) and [GEN_REFER_LIB.md](docs/GEN_REFER_LIB.md) respectively. 
-
-
+3DMolMS is also capable of predicting molecular properties and generating reference libraries for molecular identification. For more details, refer to [PROP_PRED.md](docs/PROP_PRED.md) and [GEN_REFER_LIB.md](docs/GEN_REFER_LIB.md) respectively. 
 
 ## Citation
-
-If you use 3DMolMS in your research, please cite our paper:
 
 ```
 @article{hong20233dmolms,
@@ -220,9 +240,17 @@ If you use 3DMolMS in your research, please cite our paper:
   year={2023},
   publisher={Oxford University Press}
 }
+@article{hong2024enhanced,
+  title={Enhanced structure-based prediction of chiral stationary phases for chromatographic enantioseparation from 3D molecular conformations},
+  author={Hong, Yuhui and Welch, Christopher J and Piras, Patrick and Tang, Haixu},
+  journal={Analytical Chemistry},
+  volume={96},
+  number={6},
+  pages={2351--2359},
+  year={2024},
+  publisher={ACS Publications}
+}
 ```
-
-Thank you for considering 3DMolMS for your research needs!
 
 ## License
 

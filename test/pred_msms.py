@@ -17,7 +17,7 @@ molnet_engine.load_data(path_to_test_data='./test/input_msms.csv') # Increasing 
 # molnet_engine.load_data(path_to_test_data='./test/input_msms.pkl') # PKL file is faster. 
 
 # Predict MS/MS
-spectra = molnet_engine.pred_msms(path_to_results='./test/output_msms.mgf')
+spectra = molnet_engine.pred_msms(path_to_results='./test/output_msms.mgf', path_to_checkpoint='./check_point/molnet_qtof_etkdgv3.pt', instrument='qtof')
 
 # Plot the predicted MS/MS with 3D molecular conformation
-molnet_engine.plot_msms(dir_to_img='./img/')
+molnet_engine.plot_msms(dir_to_img='./img/', instrument='qtof')

@@ -4,7 +4,7 @@ model:
   max_atom_num: 300
   resolution: 0.2
   max_mz: 1500
-  batch_size: 32
+  batch_size: 64
   emb_dim: 2048 
   k: 5
   dropout: 0.2
@@ -13,11 +13,12 @@ model:
 
 train:
   epochs: 200
-  batch_size: 32
+  batch_size: 64
   num_workers: 0
   lr: 0.001
 
-test:
-  local_path: './check_point/molnet_qtof_etkdgv3.pt'
-  google_drive_link: 'https://drive.google.com/file/d/1xy2B4i1h5WgfwiVlEYOzHOE28qjVnBf6/view?usp=drive_link'
-
+test: 
+  local_path_qtof: './check_point/molnet_qtof_etkdgv3.pt'
+  local_path_orbitrap: './check_point/molnet_orbitrap_etkdgv3.pt'
+  github_release_url_qtof: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.1.6/molnet_qtof_etkdgv3.pt.zip'
+  github_release_url_orbitrap: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.1.6/molnet_orbitrap_etkdgv3.pt.zip'
