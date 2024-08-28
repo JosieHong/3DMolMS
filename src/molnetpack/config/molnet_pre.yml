@@ -1,0 +1,22 @@
+model:
+  in_dim: 21
+  add_num: 0
+  max_atom_num: 300
+  resolution: 0.2
+  max_mz: 1500
+  batch_size: 32
+  emb_dim: 2048 
+  k: 5
+  dropout: 0.2
+  encode_layers: [64, 64, 128, 256, 512, 1024]
+  decode_layers: [512, 256, 128, 32]
+
+train:
+  epochs: 200
+  batch_size: 64
+  num_workers: 0
+  lr: 0.01
+
+test:
+  local_path_qtof: './check_point/molnet_pre_etkdgv3.pt'
+  github_release_url: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.1.6/molnet_pre_etkdgv3.pt.zip' 

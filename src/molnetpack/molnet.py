@@ -44,14 +44,20 @@ class MolNet:
 		# Initialize variables
 		self.pkl_dict = None
 		self.valid_loader = None
+		self.batch_size = None
+
 		self.msms_model = None
 		self.qtof_msms_res_df = None
 		self.orbitrap_msms_res_df = None
+
 		self.ccs_model = None
 		self.ccs_res_df = None
-		self.encoder = None
-		self.batch_size = None
 
+		self.rt_model = None
+		self.rt_res_df = None
+
+		self.encoder = None
+		
 		self.init_random_seed(seed)
 
 	def get_data(self):
@@ -97,6 +103,7 @@ class MolNet:
 		task_map = {
 			'msms': self.msms_config['test']['local_path_qtof'] if instrument == 'qtof' else self.msms_config['test']['local_path_orbitrap'],
 			'ccs': self.ccs_config['test']['local_path'],
+			'rt': self.rt_config['test']['local_path'],
 			'save_feat': self.msms_config['test']['local_path_qtof'] if instrument == 'qtof' else self.msms_config['test']['local_path_orbitrap']
 		}
 		return task_map.get(task_name)
@@ -109,9 +116,9 @@ class MolNet:
 			
 			# URL of the GitHub Release asset
 			if task_name == 'ccs':
-				github_release_url = self.ccs_config['test']['github_release_url']
+				github_url = self.ccs_config['test']['github_release_url']
 			elif task_name == 'rt':
-				github_release_url = self.rt_config['test']['github_release_url']
+				github_url = self.rt_config['test']['github_release_url']
 			else: 
 				if instrument == 'qtof':
 					github_url = self.msms_config['test']['github_release_url_qtof']
@@ -134,6 +141,7 @@ class MolNet:
 		model_map = {
 			'msms': self.msms_model,
 			'ccs': self.ccs_model,
+			'rt': self.rt_model,
 			'save_feat': self.encoder
 		}
 		model = model_map.get(task_name)
@@ -232,12 +240,34 @@ class MolNet:
 
 		self.ccs_res_df = pd.DataFrame({
 			'ID': id_list, 'SMILES': smiles_list, 
-			'Precursor Type': add_list, 'Pred CCS': pred_list
+			'Precursor Type': add_list, 'Pred CCS': pred_list.squeeze()
 		})
 
 		self.ccs_res_df.to_csv(path_to_results, index=False)
 		print(f'\nSaved the results to {path_to_results}')
 		return self.ccs_res_df
+
+	def pred_rt(self, path_to_results, path_to_checkpoint=None):
+		self.rt_model = MolNet_Oth(self.rt_config['model']).to(self.device)
+		self.load_checkpoint('rt', path_to_checkpoint)
+		id_list, pred_list = eval_step_oth(self.rt_model, self.device, self.valid_loader, 
+										   batch_size=1, num_points=self.rt_config['model']['max_atom_num'])
+
+		result_dir = os.path.dirname(path_to_results)
+		os.makedirs(result_dir, exist_ok=True)
+
+		smiles_list = []
+		for d in self.pkl_dict:
+			smiles_list.append(d['smiles'])
+
+		self.rt_res_df = pd.DataFrame({
+			'ID': id_list, 'SMILES': smiles_list, 
+			'Pred RT': pred_list.squeeze()
+		})
+
+		self.rt_res_df.to_csv(path_to_results, index=False)
+		print(f'\nSaved the results to {path_to_results}')
+		return self.rt_res_df
 
 	def plot_msms(self, dir_to_img, instrument='qtof'): 
 		os.makedirs(dir_to_img, exist_ok = True)

@@ -10,7 +10,8 @@ device = torch.device("cpu")
 
 molnet_engine = MolNet(device, seed=42)
 
-# molnet_engine.load_data(path_to_test_data='./test/demo_input.csv', path_to_save_pkl='./test/demp_input.pkl')
-molnet_engine.load_data(path_to_test_data='./test/demo_ccs_input.csv')
+molnet_engine.load_data(path_to_test_data='./test/input_ccs.csv')
 
-ccs_df = molnet_engine.pred_ccs(path_to_results='./test/demo_ccs.csv')
+# Pred CCS
+# ccs_df = molnet_engine.pred_ccs(path_to_results='./test/output_ccs.csv', path_to_checkpoint='./check_point/molnet_ccs_etkdgv3_tl.pt')
+ccs_df = molnet_engine.pred_ccs(path_to_results='./test/output_ccs.csv') # Download checkpoint from GitHub release page. 

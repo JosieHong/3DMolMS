@@ -133,13 +133,14 @@ def csv2pkl_wfilter(csv_path, encoder):
 		if 'Precursor_Type' in row.keys(): 
 			precursor_type_one_hot = encoder['precursor_type'][row['Precursor_Type']]
 		
+		# env array
 		if 'Collision_Energy' in row.keys() and 'Precursor_Type' in row.keys(): # (msms prediction)
 			env_arr = np.array([nce] + precursor_type_one_hot)
 		elif 'Precursor_Type' in row.keys(): # only precursor types (ccs prediction)
 			env_arr = np.array([0.] + precursor_type_one_hot)
 		elif 'Collision_Energy' in row.keys(): # only collision energies (didn't use this so far)
 			env_arr = np.array([nce] + [0.]*len(encoder['precursor_type']))
-		else: # no env (filled all zeros)
+		else: # no env (rt prediction: input zeros)
 			env_arr = np.zeros(1+len(encoder['precursor_type']))
 
 		data.append({'title': row['ID'], 'smiles': row['SMILES'], 'mol': mol_arr, 'env': env_arr})

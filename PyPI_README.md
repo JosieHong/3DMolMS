@@ -76,6 +76,16 @@ molnet_engine.load_data(path_to_test_data='./test/input_ccs.csv')
 ccs_df = molnet_engine.pred_ccs(path_to_results='./test/output_ccs.csv')
 ```
 
+For RT prediction, please use the following code after instantiating a MolNet object. Please note that since this model is trained on the METLIN-SMRT dataset, the predicted retention time is under the same experimental conditions as the METLIN-SMRT set.
+
+```python
+# Load input data
+molnet_engine.load_data(path_to_test_data='./test/input_rt.csv')
+
+# Pred RT
+rt_df = molnet_engine.pred_rt(path_to_results='./test/output_rt.csv')
+```
+
 For saving the molecular embeddings, please use the following codes after instantiating a MolNet object. 
 
 ```python

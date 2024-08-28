@@ -1,6 +1,6 @@
 model:
   in_dim: 21
-  add_num: 5
+  add_num: 0
   max_atom_num: 300
   batch_size: 32
   emb_dim: 2048 

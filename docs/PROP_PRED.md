@@ -37,7 +37,7 @@ python ./src/train_rt.py --train_data ./data/metlin_etkdgv3_train.pkl \
 --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
 --checkpoint_path ./check_point/molnet_rt_etkdgv3_tl.pt \
 --transfer \
---resume_path ./check_point/molnet_pre_etkdgv3.pt 
+--resume_path ./check_point/molnet_qtof_etkdgv3.pt
 ```
 
 
@@ -83,7 +83,7 @@ python ./src/train_ccs.py --train_data ./data/allccs_etkdgv3_train.pkl \
 --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
 --checkpoint_path ./check_point/molnet_ccs_etkdgv3_tl.pt \
 --transfer \
---resume_path ./check_point/molnet_pre_etkdgv3.pt 
+--resume_path ./check_point/molnet_qtof_etkdgv3.pt 
 ```
 
 ## Fine-tune on your own data
@@ -117,7 +117,7 @@ python ./src/train_csv.py --data <path to csv/pkl data> \
 Step 3: Predict the unlabeled data
 
 ```bash
-python pred_rt.py --data <path to csv/pkl data> \
+python pred_csv.py --data <path to csv/pkl data> \
 --model_config_path <path to configuration> \
 --checkpoint_path <path to save the checkpoint> \
 --result_path <path to save the prediction results> \
