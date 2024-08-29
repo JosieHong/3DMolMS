@@ -31,7 +31,9 @@ RDLogger.DisableLog('rdApp.*')
 
 class MolNet:
 	def __init__(self, device, seed):
-		print('Version information here')
+		self.version = 'v1.1.9'
+		print('MolNetPack version:', self.version)
+
 		self.device = device
 		self.current_path = Path(__file__).parent
 
@@ -189,8 +191,8 @@ class MolNet:
 		else:
 			self.orbitrap_msms_res_df = pd.DataFrame({
 				'ID': id_list, 'SMILES': smiles_list, 
-				'Precursor Type': add_list, 'Pred M/Z': pred_mz, 
-				'Pred Intensity': pred_intensity
+				'Collision Energy': ce_list, 'Precursor Type': add_list, 
+				'Pred M/Z': pred_mz, 'Pred Intensity': pred_intensity
 			})
 
 		spectra = self._generate_spectra(instrument)
@@ -205,16 +207,17 @@ class MolNet:
 		else:
 			df = self.orbitrap_msms_res_df
 
-		for idx, row in df.iterrows():
+		for idx, row in df.iterrows(): 
 			spectrum = {
 				'params': {
 					'title': row['ID'], 
 					'mslevel': '2', 
-					'organism': '3DMolMS_v1.1', 
+					'organism': '3DMolMS_{}'.format(self.version), 
 					'spectrumid': f'pred_{idx}', 
 					'smiles': row['SMILES'], 
 					'collision_energy': row['Collision Energy'],
 					'precursor_type': row['Precursor Type'],
+					'instrument_type': instrument, 
 				},
 				'm/z array': np.array([float(i) for i in row['Pred M/Z'].split(',') if i]),
 				'intensity array': np.array([float(i) * 1000 for i in row['Pred Intensity'].split(',') if i])
