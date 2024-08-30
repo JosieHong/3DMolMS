@@ -1,4 +1,5 @@
-* 2024.08.29 (v1.1.9): fix the GitHub release address. 
+* 2024.08.30 (v1.1.10): modify the arguments and return values in `MolNet` for better usage; update the documents.
+* 2024.08.29 (v1.1.9): fix the GitHub release address (using `v1.1.8` release until update the weights). 
 * 2024.08.28 (v1.1.8): release retention time prediction model. 
 * 2024.08.27 (v1.1.7): update `MolConv` to `MolConv 2.0`, which is introduced in "Hong, Y., Welch, C.J., Piras, P. and Tang, H., 2024. Enhanced structure-based prediction of chiral stationary phases for chromatographic enantioseparation from 3D molecular conformations. Analytical Chemistry, 96(6), pp.2351-2359.". 
 * 2024.08.19 (v1.1.6): release orbitrap ms/ms model, and codes for fine-tuning our model on customized data; move the model weights on google drive to GitHub release. 

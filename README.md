@@ -10,20 +10,16 @@ The changes log can be found at [[CHANGE_LOG.md]](./CHANGE_LOG.md).
 
 ## Installation
 
-3DMolMS is available on PyPI. You can install the latest version using `pip`:
+3DMolMS is available on PyPI (`molnetpack`). You can install the latest version using `pip`:
 
 ```bash
 pip install molnetpack
 
 # PyTorch must be installed separately. 
-# For CUDA 11.6, install PyTorch with the following command:
-pip install torch==1.13.0+cu116 torchvision==0.14.0+cu116 torchaudio==0.13.0 --extra-index-url https://download.pytorch.org/whl/cu116
-
-# For CUDA 11.7, use:
-pip install torch==1.13.0+cu117 torchvision==0.14.0+cu117 torchaudio==0.13.0 --extra-index-url https://download.pytorch.org/whl/cu117
-
-# For CPU-only usage, use:
-pip install torch==1.13.0+cpu torchvision==0.14.0+cpu torchaudio==0.13.0 --extra-index-url https://download.pytorch.org/whl/cpu
+# Please check the official website of PyTorch for the proper version:
+# https://pytorch.org/get-started/locally/
+# e.g.
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 ```
 
 3DMolMS can also be installed through source codes:
@@ -37,11 +33,11 @@ pip install .
 
 ## Usage
 
-To get started quickly, you can load a CSV or MGF file to predict MS/MS and then plot the predicted results. 
+To get started quickly, you can instantiate a MolNet and load a CSV or MGF file for MS/MS prediction as: 
 
 ```python
 import torch
-from molnetpack import MolNet
+from molnetpack import MolNet, plot_msms
 
 # Set the device to CPU for CPU-only usage:
 device = torch.device("cpu")
@@ -54,54 +50,34 @@ device = torch.device("cpu")
 molnet_engine = MolNet(device, seed=42) # The random seed can be any integer. 
 
 # Load input data (here we use a CSV file as an example)
-molnet_engine.load_data(path_to_test_data='./test/input_msms.csv') # Increasing the batch size if you wanna speed up.
-# molnet_engine.load_data(path_to_test_data='./test/input_msms.mgf') # MGF file is also supported
-# molnet_engine.load_data(path_to_test_data='./test/input_msms.pkl') # PKL file is faster. 
+molnet_engine.load_data(path_to_test_data='./test/input_msms.csv')
+"""Load data from the specified path.
+Args:
+    path_to_test_data (str): Path to the test data file. Supported formats are 'csv', 'mgf', and 'pkl'.
+Returns:
+    None
+"""
 
 # Predict MS/MS
-spectra1 = molnet_engine.pred_msms(path_to_results='./test/output_qtof_msms.mgf', instrument='qtof')
-# You could also download the checkpoint from release and set the 'path_to_checkpoint':
-# spectra = molnet_engine.pred_msms(path_to_results='./test/output_msms.mgf', path_to_checkpoint='<path to the checkpoint>')
-# Instrument can be 'qtof' or 'orbitrap'. 
+pred_spectra_df = molnet_engine.pred_msms(instrument='qtof')
+"""Predict MS/MS spectra.
+Args:
+    path_to_results (Optional[str]): Path to save the prediction results. Supports '.mgf' or '.csv' formats. If None, the results won't be saved. 
+    path_to_checkpoint (Optional[str]): Path to the model checkpoint. If None, the model will be downloaded from a default URL.
+    instrument (str): Type of instrument used ('qtof' or 'orbitrap').
+Returns:
+    pd.DataFrame: DataFrame containing the predicted MS/MS results.
+"""
+```
 
+We also implement a function to plot the predicted results.
+
+```python
 # Plot the predicted MS/MS with 3D molecular conformation
-molnet_engine.plot_msms(dir_to_img='./img/', instrument='qtof')
+plot_msms(pred_spectra_df, dir_to_img='./img/')
 ```
 
-For CCS prediction, please use the following codes after instantiating a MolNet object. 
-
-```python
-# Load input data
-molnet_engine.load_data(path_to_test_data='./test/input_ccs.csv')
-
-# Pred CCS
-ccs_df = molnet_engine.pred_ccs(path_to_results='./test/output_ccs.csv')
-```
-
-For RT prediction, please use the following code after instantiating a MolNet object. Please note that since this model is trained on the METLIN-SMRT dataset, the predicted retention time is under the same experimental conditions as the METLIN-SMRT set.
-
-```python
-# Load input data
-molnet_engine.load_data(path_to_test_data='./test/input_rt.csv')
-
-# Pred RT
-rt_df = molnet_engine.pred_rt(path_to_results='./test/output_rt.csv')
-```
-
-For saving the molecular embeddings, please use the following codes after instantiating a MolNet object. 
-
-```python
-# Load input data
-molnet_engine.load_data(path_to_test_data='./test/input_savefeat.csv')
-
-# Inference to get the features
-ids, features = molnet_engine.save_features()
-
-print('Titles:', ids)
-print('Features shape:', features.shape)
-```
-
-The sample input files, a CSV and an MGF, are located at `./test/demo_input.csv` and `./test/demo_input.mgf`, respectively. If the input data is only expected to be used in CCS prediction, you may assign an arbitrary numerical value to the `Collision_Energy` field in the CSV file or to `COLLISION_ENERGY` in the MGF file. It's important to note that during the data loading phase, any input formats that are not supported will be automatically excluded. Below is a table outlining the types of input data that are supported: 
+The sample input files, a CSV and an MGF, are located at `./test/demo_input.csv` and `./test/demo_input.mgf`, respectively. It's important to note that during the data loading phase, any input formats that are not supported will be automatically excluded. Below is a table outlining the types of input data that are supported: 
 
 | Item             | Supported input                                               |
 |------------------|---------------------------------------------------------------|
@@ -110,16 +86,20 @@ The sample input files, a CSV and an MGF, are located at `./test/demo_input.csv`
 | Precursor types  | '[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+'       |
 | Collision energy | any number                                                    |
 
-The sample output files are at `./test/demo_msms.mgf` and `./test/demo_ccs.csv`. Below is an example of a predicted MS/MS spectrum plot.
+Below is an example of a predicted MS/MS spectrum plot.
 
 <p align="center">
   <img src='https://github.com/JosieHong/3DMolMS/blob/main/img/demo_0.png' width='600'>
 </p> 
 
-The documents for running MS/MS prediction from source codes are at [MSMS_PRED.md](docs/MSMS_PRED.md). 
-
-
-
+A more detailed documentation for various tasks using molnetpack or source code can be found in the [docs/](docs/) directory, which includes the following: 
+* [./docs/](./docs/)
+  * [PROP_USAGE.md](./docs/PROP_USAGE.md): Guide on using `molnetpack` for RT prediction, CCS prediction, and molecular embedding. 
+  * [MSMS_PRED.md](./docs/MSMS_PRED.md): Instructions for using 3DMolMS to predict MS/MS spectra from your own CSV files via the source code. The training details can be found in the [next section](#train-your-own-model). 
+  * [GEN_REFER_LIB.md](./docs/GEN_REFER_LIB.md): Instructions for using 3DMolMS to generate MS/MS reference libraries from small molecule databases, such as HMDB and RefMet, via the source code. 
+  * [PROP_PRED.md](./docs/PROP_PRED.md): Instructions for training and testing 3DMolMS on RT and CCS prediction via the source code.
+  * [PRETRAIN.md](./docs/PRETRAIN.md): Instructions for pretraining 3DMolMS on the QM9 dataset via the source code. 
+  
 ## Train your own model
 
 **Step 0**: Clone the Repository and Set Up the Environment

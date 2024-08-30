@@ -256,7 +256,7 @@ if __name__ == "__main__":
 	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10)
 	if args.transfer and args.resume_path != '': 
 		print("Load the pretrained encoder (freeze the encoder)...")
-		state_dict = torch.load(args.resume_path, map_location=device)['model_state_dict']
+		state_dict = torch.load(args.resume_path, map_location=device, weights_only=True)['model_state_dict']
 		encoder_dict = {}
 		for name, param in state_dict.items(): 
 			if not name.startswith("decoder"): 
@@ -265,10 +265,10 @@ if __name__ == "__main__":
 		model.load_state_dict(encoder_dict, strict=False)
 	elif args.resume_path != '':
 		print("Load the checkpoints...")
-		model.load_state_dict(torch.load(args.resume_path, map_location=device)['model_state_dict'])
-		optimizer.load_state_dict(torch.load(args.resume_path, map_location=device)['optimizer_state_dict'])
-		scheduler.load_state_dict(torch.load(args.resume_path, map_location=device)['scheduler_state_dict'])
-		best_valid_mae = torch.load(args.resume_path)['best_val_mae']
+		model.load_state_dict(torch.load(args.resume_path, map_location=device, weights_only=True)['model_state_dict'])
+		optimizer.load_state_dict(torch.load(args.resume_path, map_location=device, weights_only=True)['optimizer_state_dict'])
+		scheduler.load_state_dict(torch.load(args.resume_path, map_location=device, weights_only=True)['scheduler_state_dict'])
+		best_valid_mae = torch.load(args.resume_path, weights_only=True)['best_val_mae']
 
 	if args.checkpoint_path != '':
 		checkpoint_dir = "/".join(args.checkpoint_path.split('/')[:-1])
@@ -316,7 +316,7 @@ if __name__ == "__main__":
 		result_dir = "/".join(args.result_path.split('/')[:-1])
 		os.makedirs(result_dir, exist_ok = True)
 
-		model.load_state_dict(torch.load(args.checkpoint_path, map_location=device)['model_state_dict'])
+		model.load_state_dict(torch.load(args.checkpoint_path, map_location=device, weights_only=True)['model_state_dict'])
 		id_list, pred_list = test_step(model, device, valid_loader, 
 								batch_size=batch_size, num_points=config['model']['max_atom_num'])
 		res_df = pd.DataFrame({'ID': id_list, 'Pred Time': pred_list})

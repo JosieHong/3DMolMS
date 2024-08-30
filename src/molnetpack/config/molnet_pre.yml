@@ -19,4 +19,4 @@ train:
 
 test:
   local_path_qtof: './check_point/molnet_pre_etkdgv3.pt'
-  github_release_url: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.1.9/molnet_pre_etkdgv3.zip' 
+  github_release_url: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.1.8/molnet_pre_etkdgv3.zip' 

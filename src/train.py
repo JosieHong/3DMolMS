@@ -162,7 +162,7 @@ if __name__ == "__main__":
 	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=5)
 	if args.transfer and args.resume_path != '': 
 		print("Load the pretrained encoder (freeze the encoder)...")
-		state_dict = torch.load(args.resume_path, map_location=device)['model_state_dict']
+		state_dict = torch.load(args.resume_path, map_location=device, weights_only=True)['model_state_dict']
 		encoder_dict = {}
 		for name, param in state_dict.items(): 
 			if not name.startswith("decoder"): 
@@ -171,10 +171,10 @@ if __name__ == "__main__":
 		model.load_state_dict(encoder_dict, strict=False)
 	elif args.resume_path != '':
 		print("Load the checkpoints...")
-		model.load_state_dict(torch.load(args.resume_path, map_location=device)['model_state_dict'])
-		optimizer.load_state_dict(torch.load(args.resume_path, map_location=device)['optimizer_state_dict'])
-		scheduler.load_state_dict(torch.load(args.resume_path, map_location=device)['scheduler_state_dict'])
-		best_valid_acc = torch.load(args.resume_path)['best_val_acc']
+		model.load_state_dict(torch.load(args.resume_path, map_location=device, weights_only=True)['model_state_dict'])
+		optimizer.load_state_dict(torch.load(args.resume_path, map_location=device, weights_only=True)['optimizer_state_dict'])
+		scheduler.load_state_dict(torch.load(args.resume_path, map_location=device, weights_only=True)['scheduler_state_dict'])
+		best_valid_acc = torch.load(args.resume_path, weights_only=True)['best_val_acc']
 
 	if args.checkpoint_path != '':
 		checkpoint_dir = "/".join(args.checkpoint_path.split('/')[:-1])

@@ -31,7 +31,7 @@ RDLogger.DisableLog('rdApp.*')
 
 class MolNet:
 	def __init__(self, device, seed):
-		self.version = 'v1.1.9'
+		self.version = 'v1.1.10'
 		print('MolNetPack version:', self.version)
 
 		self.device = device
@@ -60,7 +60,7 @@ class MolNet:
 
 		self.encoder = None
 		
-		self.init_random_seed(seed)
+		self._init_random_seed(seed)
 
 	def get_data(self):
 		return self.pkl_dict
@@ -70,7 +70,7 @@ class MolNet:
 		with open(config_path, 'r') as f:
 			return yaml.load(f, Loader=yaml.FullLoader)
 
-	def init_random_seed(self, seed):
+	def _init_random_seed(self, seed): 
 		np.random.seed(seed)
 		torch.manual_seed(seed)
 		torch.cuda.manual_seed(seed)
@@ -147,16 +147,16 @@ class MolNet:
 			'save_feat': self.encoder
 		}
 		model = model_map.get(task_name)
-		model.load_state_dict(torch.load(checkpoint_path, map_location=self.device)['model_state_dict'])
+		model.load_state_dict(torch.load(checkpoint_path, map_location=self.device, weights_only=True)['model_state_dict'])
 
-	def save_features(self, checkpoint_path=None, instrument='qtof'):
+	def save_features(self, checkpoint_path=None, instrument='qtof'): 
 		self.encoder = Encoder(**self.msms_config['model']).to(self.device)
 		self.load_checkpoint('save_feat', checkpoint_path, instrument)
 		ids, features = pred_feat(self.encoder, self.device, self.valid_loader, 
 								  batch_size=1, num_points=self.msms_config['model']['max_atom_num'])
 		return ids, features.cpu().detach().numpy()
 
-	def pred_msms(self, path_to_results, path_to_checkpoint=None, instrument='qtof'): 
+	def pred_msms(self, path_to_results=None, path_to_checkpoint=None, instrument='qtof'): 
 		assert instrument in ['qtof', 'orbitrap'], 'Instrument should be either "qtof" or "orbitrap".'
 
 		self.msms_model = MolNet_MS(self.msms_config['model']).to(self.device)
@@ -164,12 +164,22 @@ class MolNet:
 		id_list, pred_list = pred_step(self.msms_model, self.device, self.valid_loader, 
 									   batch_size=1, num_points=self.msms_config['model']['max_atom_num'])
 		pred_list = [ms_vec2dict(spec, float(self.msms_config['model']['resolution'])) for spec in pred_list.tolist()]
-		self._output_msms_results(path_to_results, id_list, pred_list, instrument)
+		pred_msms_df = self._assemble_msms_results(id_list, pred_list, instrument)
+		if path_to_results:
+			result_dir = os.path.dirname(path_to_results)
+			if result_dir:
+				os.makedirs(result_dir, exist_ok=True)
 
-	def _output_msms_results(self, path_to_results, id_list, pred_list, instrument):
-		result_dir = os.path.dirname(path_to_results)
-		os.makedirs(result_dir, exist_ok=True)
+			if path_to_results.endswith('.mgf'):
+				spectra = self.generate_spectra_from_df(pred_msms_df, instrument)
+				mgf.write(spectra, path_to_results, file_mode="w", write_charges=False)
+				print(f'\nSaved the results to {path_to_results}')
+			elif path_to_results.endswith('.csv'):
+				pred_msms_df.to_csv(path_to_results, index=False)
+				print(f'\nSaved the results to {path_to_results}')
+		return pred_msms_df
 
+	def _assemble_msms_results(self, id_list, pred_list, instrument): 
 		ce_list, add_list, smiles_list = [], [], []
 		decoding_precursor_type = {','.join(map(str, v)): k for k, v in self.data_config['encoding']['precursor_type'].items()}
 		for d in self.pkl_dict:
@@ -188,25 +198,17 @@ class MolNet:
 				'Collision Energy': ce_list, 'Precursor Type': add_list, 
 				'Pred M/Z': pred_mz, 'Pred Intensity': pred_intensity
 			})
+			return self.qtof_msms_res_df
 		else:
 			self.orbitrap_msms_res_df = pd.DataFrame({
 				'ID': id_list, 'SMILES': smiles_list, 
 				'Collision Energy': ce_list, 'Precursor Type': add_list, 
 				'Pred M/Z': pred_mz, 'Pred Intensity': pred_intensity
 			})
+			return self.orbitrap_msms_res_df
 
-		spectra = self._generate_spectra(instrument)
-		mgf.write(spectra, path_to_results, file_mode="w", write_charges=False)
-		print(f'\nSaved the results to {path_to_results}')
-		return spectra
-
-	def _generate_spectra(self, instrument): 
+	def generate_spectra_from_df(self, df, instrument=None): 
 		spectra = []
-		if instrument == 'qtof': 
-			df = self.qtof_msms_res_df
-		else:
-			df = self.orbitrap_msms_res_df
-
 		for idx, row in df.iterrows(): 
 			spectrum = {
 				'params': {
@@ -225,14 +227,11 @@ class MolNet:
 			spectra.append(spectrum)
 		return spectra
 
-	def pred_ccs(self, path_to_results, path_to_checkpoint=None):
+	def pred_ccs(self, path_to_results=None, path_to_checkpoint=None):
 		self.ccs_model = MolNet_Oth(self.ccs_config['model']).to(self.device)
 		self.load_checkpoint('ccs', path_to_checkpoint)
 		id_list, pred_list = eval_step_oth(self.ccs_model, self.device, self.valid_loader, 
 										   batch_size=1, num_points=self.ccs_config['model']['max_atom_num'])
-
-		result_dir = os.path.dirname(path_to_results)
-		os.makedirs(result_dir, exist_ok=True)
 
 		decoding_precursor_type = {','.join(map(str, v)): k for k, v in self.data_config['encoding']['precursor_type'].items()}
 		add_list, smiles_list = [], []
@@ -246,18 +245,20 @@ class MolNet:
 			'Precursor Type': add_list, 'Pred CCS': pred_list.squeeze()
 		})
 
-		self.ccs_res_df.to_csv(path_to_results, index=False)
-		print(f'\nSaved the results to {path_to_results}')
+		if path_to_results:
+			result_dir = os.path.dirname(path_to_results)
+			if result_dir:
+				os.makedirs(result_dir, exist_ok=True)
+
+			self.ccs_res_df.to_csv(path_to_results, index=False)
+			print(f'\nSaved the results to {path_to_results}')
 		return self.ccs_res_df
 
-	def pred_rt(self, path_to_results, path_to_checkpoint=None):
+	def pred_rt(self, path_to_results=None, path_to_checkpoint=None): 
 		self.rt_model = MolNet_Oth(self.rt_config['model']).to(self.device)
 		self.load_checkpoint('rt', path_to_checkpoint)
 		id_list, pred_list = eval_step_oth(self.rt_model, self.device, self.valid_loader, 
 										   batch_size=1, num_points=self.rt_config['model']['max_atom_num'])
-
-		result_dir = os.path.dirname(path_to_results)
-		os.makedirs(result_dir, exist_ok=True)
 
 		smiles_list = []
 		for d in self.pkl_dict:
@@ -268,46 +269,51 @@ class MolNet:
 			'Pred RT': pred_list.squeeze()
 		})
 
-		self.rt_res_df.to_csv(path_to_results, index=False)
-		print(f'\nSaved the results to {path_to_results}')
+		if path_to_results:
+			result_dir = os.path.dirname(path_to_results)
+			if result_dir:
+				os.makedirs(result_dir, exist_ok=True)
+
+			self.rt_res_df.to_csv(path_to_results, index=False)
+			print(f'\nSaved the results to {path_to_results}')
 		return self.rt_res_df
 
-	def plot_msms(self, dir_to_img, instrument='qtof'): 
-		os.makedirs(dir_to_img, exist_ok = True)
+def plot_msms(msms_res_df, dir_to_img): 
+	os.makedirs(dir_to_img, exist_ok = True)
 
-		img_dpi = 300
-		y_max = 1
-		x_max = None # varies in different MS/MS
-		bin_width = 0.4 # please adujst it for good looking
-		figsize = (9, 4)
+	img_dpi = 300
+	y_max = 1
+	x_max = None # varies in different MS/MS
+	bin_width = 0.4 # please adujst it for good looking
+	figsize = (9, 4)
 
-		for idx, row in self.qtof_msms_res_df.iterrows(): 
-			fig, ax = plt.subplots(figsize=figsize)
-			mz_values = np.array([float(i) for i in row['Pred M/Z'].split(',')])
-			x_max = np.max(mz_values)
-			plt.bar(mz_values, 
-					np.array([float(i)*y_max for i in row['Pred Intensity'].split(',')]), 
-					width=bin_width, color='k')
-			plt.xlim(0, x_max)
-			plt.title('ID: '+row['ID'])
-			plt.xlabel('M/Z')
-			plt.ylabel('Relative intensity')
+	for idx, row in msms_res_df.iterrows(): 
+		fig, ax = plt.subplots(figsize=figsize)
+		mz_values = np.array([float(i) for i in row['Pred M/Z'].split(',')])
+		x_max = np.max(mz_values)
+		plt.bar(mz_values, 
+				np.array([float(i)*y_max for i in row['Pred Intensity'].split(',')]), 
+				width=bin_width, color='k')
+		plt.xlim(0, x_max)
+		plt.title('ID: '+row['ID'])
+		plt.xlabel('M/Z')
+		plt.ylabel('Relative intensity')
 
-			# plot the molecules 
-			mol = Chem.MolFromSmiles(row['SMILES'])
-			mol = Chem.AddHs(mol)
-			AllChem.EmbedMolecule(mol)
-			AllChem.MMFFOptimizeMolecule(mol, maxIters=200)
-			mol_img = Draw.MolToImage(mol, size=(800, 800))
-			# make the backgrounf transparent
-			alpha_img = mol_img.convert('L')
-			alpha_img = Image.fromarray(255 - np.array(alpha_img))
-			mol_img.putalpha(alpha_img)
-			imagebox = OffsetImage(mol_img, zoom=72./img_dpi) # https://stackoverflow.com/questions/48639369/does-adding-images-in-pyplot-lowers-their-resolution
-			mol_ab = AnnotationBbox(imagebox, (x_max*0.28, y_max*0.64), frameon=False, xycoords='data')
-			ax.add_artist(mol_ab)
+		# plot the molecules 
+		mol = Chem.MolFromSmiles(row['SMILES'])
+		mol = Chem.AddHs(mol)
+		AllChem.EmbedMolecule(mol)
+		AllChem.MMFFOptimizeMolecule(mol, maxIters=200)
+		mol_img = Draw.MolToImage(mol, size=(800, 800))
+		# make the backgrounf transparent
+		alpha_img = mol_img.convert('L')
+		alpha_img = Image.fromarray(255 - np.array(alpha_img))
+		mol_img.putalpha(alpha_img)
+		imagebox = OffsetImage(mol_img, zoom=72./img_dpi) # https://stackoverflow.com/questions/48639369/does-adding-images-in-pyplot-lowers-their-resolution
+		mol_ab = AnnotationBbox(imagebox, (x_max*0.28, y_max*0.64), frameon=False, xycoords='data')
+		ax.add_artist(mol_ab)
 
-			plt.savefig(os.path.join(dir_to_img, row['ID']), dpi=img_dpi, bbox_inches='tight')
-			plt.close()
-		print('\nSaved the plotted MS/MS to {}'.format(dir_to_img))
-		return 
+		plt.savefig(os.path.join(dir_to_img, row['ID']), dpi=img_dpi, bbox_inches='tight')
+		plt.close()
+	print('\nSaved the plotted MS/MS to {}'.format(dir_to_img))
+	return 
