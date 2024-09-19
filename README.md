@@ -6,6 +6,12 @@
 
 [Read our paper in Bioinformatics](https://academic.oup.com/bioinformatics/article/39/6/btad354/7186501) | [Try our online service at GNPS](https://spectrumprediction.gnps2.org) | [Install from PyPI](https://pypi.org/project/molnetpack/)
 
+🆕 3DMolMS v1.1.10 is now available both on PyPI and GNPS2! 
+
+<p align="center">
+  <img src='https://github.com/JosieHong/3DMolMS/blob/main/img/gnps2_msms_pred.png' width='600'>
+</p> 
+
 The changes log can be found at [[CHANGE_LOG.md]](./CHANGE_LOG.md). 
 
 ## Installation
