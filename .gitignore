@@ -134,3 +134,4 @@ dist/
 check_point/
 tmp/
 *.bak
+src/hmdb_3d.py

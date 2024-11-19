@@ -96,10 +96,10 @@ def csv2pkl_wfilter(csv_path, encoder):
 		# e.g. https://github.com/rdkit/rdkit/issues/5145
 		# Let's skip the unsolvable molecules. 
 		if not good_conf: # filter 1
-			print('Can not generate correct conformation: {} {}'.format(row['SMILES'], row['ID']))
+			# print('Can not generate correct conformation: {} {}'.format(row['SMILES'], row['ID']))
 			continue
 		if xyz_arr.shape[0] > encoder['max_atom_num']: # filter 2
-			print('Atomic number ({}) exceed the limitation ({})'.format(encoder['max_atom_num'], xyz_arr.shape[0]))
+			# print('Atomic number ({}) exceed the limitation ({})'.format(encoder['max_atom_num'], xyz_arr.shape[0]))
 			continue
 		# filter 3
 		rare_atom_flag = False
@@ -109,8 +109,8 @@ def csv2pkl_wfilter(csv_path, encoder):
 				rare_atom_flag = True
 				rare_atom = atom
 				break
-		if rare_atom_flag:
-			print('Unsupported atom type: {} {}'.format(rare_atom, row['ID']))
+		if rare_atom_flag: 
+			# print('Unsupported atom type: {} {}'.format(rare_atom, row['ID']))
 			continue
 
 		atom_type_one_hot = np.array([encoder['atom_type'][atom] for atom in atom_type])
@@ -122,7 +122,7 @@ def csv2pkl_wfilter(csv_path, encoder):
 		# env array
 		if 'Collision_Energy' in row.keys():
 			if row['Precursor_Type'] not in encoder['precursor_type'].keys(): # filter 4
-				print('Unsupported precusor type: {}'.format(row['Precursor_Type']))
+				# print('Unsupported precusor type: {}'.format(row['Precursor_Type']))
 				continue
 			precursor_mz = precursor_calculator(row['Precursor_Type'], mass=Descriptors.MolWt(Chem.MolFromSmiles(row['SMILES'])))
 			ce, nce = parse_collision_energy(ce_str=row['Collision_Energy'], 
@@ -151,6 +151,7 @@ def csv2pkl_wfilter(csv_path, encoder):
 # used in generating reference library ------------------------------------------------------------------------------
 def sdf2pkl_with_cond(suppl, encoder, collision_energies, precursor_types): 
 	data = []
+	bad_conformation = 0
 	for idx, mol in enumerate(tqdm(suppl)): 
 		# mol array
 		good_conf, xyz_arr, atom_type = conformation_array(smiles=Chem.MolToSmiles(mol, isomericSmiles=True), 
@@ -159,6 +160,7 @@ def sdf2pkl_with_cond(suppl, encoder, collision_energies, precursor_types):
 		# e.g. https://github.com/rdkit/rdkit/issues/5145
 		# Let's skip the unsolvable molecules. 
 		if not good_conf: 
+			bad_conformation += 1
 			continue
 		atom_type_one_hot = np.array([encoder['atom_type'][atom] for atom in atom_type])
 		assert xyz_arr.shape[0] == atom_type_one_hot.shape[0]
@@ -180,6 +182,8 @@ def sdf2pkl_with_cond(suppl, encoder, collision_energies, precursor_types):
 
 				data.append({'title': mol.GetProp('DATABASE_ID')+'_'+ce_str+'_'+str(add), 
 							'smiles': Chem.MolToSmiles(mol, isomericSmiles=True), 'mol': mol_arr, 'env': env_arr})
+	
+	# print('# mol: Bad conformation', bad_conformation)
 	return data
 
 
