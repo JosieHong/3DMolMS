@@ -1,3 +1,4 @@
+* 2024.12.20 (v1.1.11): fix the bug of importing `plot_msms`. 
 * 2024.08.30 (v1.1.10): modify the arguments and return values in `MolNet` for better usage; update the documents.
 * 2024.08.29 (v1.1.9): fix the GitHub release address (using `v1.1.8` release until update the weights). 
 * 2024.08.28 (v1.1.8): release retention time prediction model. 
