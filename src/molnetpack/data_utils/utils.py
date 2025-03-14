@@ -132,25 +132,28 @@ def parse_collision_energy(ce_str, precursor_mz, charge=1):
 		return None, None
 	return ce, nce
 
-def conformation_array(smiles, conf_type): 
+def conformation_array(x, conf_type): 
 	# convert smiles to molecule
 	if conf_type == 'etkdg': 
-		mol = Chem.MolFromSmiles(smiles)
+		mol = Chem.MolFromSmiles(x)
 		mol_from_smiles = Chem.AddHs(mol)
 		AllChem.EmbedMolecule(mol_from_smiles)
 
 	elif conf_type == 'etkdgv3': 
-		mol = Chem.MolFromSmiles(smiles)
+		mol = Chem.MolFromSmiles(x)
 		mol_from_smiles = Chem.AddHs(mol)
 		ps = AllChem.ETKDGv3()
 		ps.randomSeed = 0xf00d
 		AllChem.EmbedMolecule(mol_from_smiles, ps) 
 
 	elif conf_type == '2d':
-		mol = Chem.MolFromSmiles(smiles)
+		mol = Chem.MolFromSmiles(x)
 		mol_from_smiles = Chem.AddHs(mol)
 		rdDepictor.Compute2DCoords(mol_from_smiles)
 
+	elif conf_type == 'origin':
+		mol_from_smiles = Chem.AddHs(x)
+		
 	elif conf_type == 'omega': 
 		raise ValueError('OMEGA conformation will be supported soon. ')
 	else:

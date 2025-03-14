@@ -18,7 +18,7 @@ if __name__ == "__main__":
 						help='path to raw data')
 	parser.add_argument('--pkl_dir', type=str, default='./data/hmdb/',
 						help='path to pkl data')
-	parser.add_argument('--data_config_path', type=str, default='./config/preprocess_etkdgv3.yml',
+	parser.add_argument('--data_config_path', type=str, default='./config/preprocess_hmdb.yml',
 						help='path to configuration')
 	args = parser.parse_args()
 

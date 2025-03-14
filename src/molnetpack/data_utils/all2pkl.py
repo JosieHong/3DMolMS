@@ -40,6 +40,7 @@ def mgf2pkl(spectra, encoder):
 	data = []
 	for idx, spectrum in enumerate(tqdm(spectra)): 
 		# mol array
+		assert encoder['conf_type'] != 'origin' # do not support the original conformation
 		good_conf, xyz_arr, atom_type = conformation_array(smiles=spectrum['params']['smiles'], 
 															conf_type=encoder['conf_type']) 
 		# There are some limitations of conformation generation methods. 
@@ -90,6 +91,7 @@ def csv2pkl_wfilter(csv_path, encoder):
 	data = []
 	for idx, row in df.iterrows(): 
 		# mol array
+		assert encoder['conf_type'] != 'origin' # do not support the original conformation
 		good_conf, xyz_arr, atom_type = conformation_array(smiles=row['SMILES'], 
 															conf_type=encoder['conf_type']) 
 		# There are some limitations of conformation generation methods. 
@@ -154,7 +156,11 @@ def sdf2pkl_with_cond(suppl, encoder, collision_energies, precursor_types):
 	bad_conformation = 0
 	for idx, mol in enumerate(tqdm(suppl)): 
 		# mol array
-		good_conf, xyz_arr, atom_type = conformation_array(smiles=Chem.MolToSmiles(mol, isomericSmiles=True), 
+		if encoder['conf_type'] == 'origin':
+			x = mol # input molecule
+		else:
+			x = Chem.MolToSmiles(mol, isomericSmiles=True) # input smiles
+		good_conf, xyz_arr, atom_type = conformation_array(x=x, 
 															conf_type=encoder['conf_type']) 
 		# There are some limitations of conformation generation methods. 
 		# e.g. https://github.com/rdkit/rdkit/issues/5145
@@ -183,7 +189,7 @@ def sdf2pkl_with_cond(suppl, encoder, collision_energies, precursor_types):
 				data.append({'title': mol.GetProp('DATABASE_ID')+'_'+ce_str+'_'+str(add), 
 							'smiles': Chem.MolToSmiles(mol, isomericSmiles=True), 'mol': mol_arr, 'env': env_arr})
 	
-	# print('# mol: Bad conformation', bad_conformation)
+	print('# mol: Bad conformation', bad_conformation)
 	return data
 
 

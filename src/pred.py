@@ -6,8 +6,6 @@ from tqdm import tqdm
 import yaml
 import pickle
 from pyteomics import mgf
-import gdown
-import zipfile
 
 import torch
 from torch.utils.data import DataLoader
@@ -157,13 +155,7 @@ if __name__ == "__main__":
 	# 3. Evaluation
 	print("Load the checkpoints...")
 	if not os.path.exists(args.resume_path):
-		path2zip_checkpoint = args.resume_path + '.zip'
-		print('Download the checkpoints from Google Drive to {}'.format(path2zip_checkpoint))
-		gdown.download("https://drive.google.com/file/d/1xy2B4i1h5WgfwiVlEYOzHOE28qjVnBf6/view?usp=drive_link", path2zip_checkpoint, fuzzy=True)
-		
-		print('Unzip {}'.format(path2zip_checkpoint))
-		with zipfile.ZipFile(path2zip_checkpoint, 'r') as zip_ref:
-			zip_ref.extractall('/'.join(args.resume_path.split('/')[:-1]))
+		raise OSError('The checkpoint file does not exist. Please download it from release.')
 
 	model.load_state_dict(torch.load(args.resume_path, map_location=device)['model_state_dict'])
 	best_valid_acc = torch.load(args.resume_path, map_location=device)['best_val_acc']
@@ -257,4 +249,5 @@ if __name__ == "__main__":
 
 			plt.savefig(os.path.join(args.save_img_dir, row['ID']), dpi=img_dpi, bbox_inches='tight')
 			plt.close()
-	print('Save the plotted MS/MS to {}'.format(args.save_img_dir))
+			
+		print('Save the plotted MS/MS to {}'.format(args.save_img_dir))

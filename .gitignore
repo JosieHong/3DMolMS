@@ -135,3 +135,5 @@ check_point/
 tmp/
 *.bak
 src/hmdb_3d.py
+tmp_hmdb.sh
+tmp_hmdb_orbitrap.sh
