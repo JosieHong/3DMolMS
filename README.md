@@ -84,7 +84,7 @@ The sample input files, a CSV and an MGF, are located at `./test/demo_input.csv`
 | Item             | Supported input                                               |
 |------------------|---------------------------------------------------------------|
 | Atom number      | <=300                                                         |
-| Atom types       | 'C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I', 'Na' |
+| Atom types       | 'C', 'O', 'N', 'H', 'P', 'S', 'F', 'Cl', 'B', 'Br', 'I'       |
 | Precursor types  | '[M+H]+', '[M-H]-', '[M+H-H2O]+', '[M+Na]+', '[M+2H]2+'       |
 | Collision energy | any number                                                    |
 
