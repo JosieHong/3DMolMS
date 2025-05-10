@@ -41,4 +41,4 @@ Use the following commands to pretrain the model. The model and training setting
    --test_data ./data/qm9_etkdgv3_test.pkl \
    --model_config_path ./src/molnetpack/config/molnet_pre.yml \
    --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
-   --checkpoint_path ./check_point/molnet_<version>_pre_etkdgv3.pt
+   --checkpoint_path ./check_point/molnet_pre_etkdgv3.pt

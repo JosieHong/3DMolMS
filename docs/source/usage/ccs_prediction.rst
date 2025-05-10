@@ -49,7 +49,7 @@ Learning from scratch:
    --test_data ./data/allccs_etkdgv3_test.pkl \
    --model_config_path ./src/molnetpack/config/molnet_ccs.yml \
    --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
-   --checkpoint_path ./check_point/molnet_<version>_ccs_etkdgv3.pt 
+   --checkpoint_path ./check_point/molnet_ccs_etkdgv3.pt 
 
 If you'd like to train this model from the pre-trained model on MS/MS prediction, please download the pre-trained model from `release v1.2.0 <https://github.com/JosieHong/3DMolMS/releases/tag/v1.2.0>`_. 
 
@@ -61,6 +61,6 @@ Learning from pretrained model:
    --test_data ./data/allccs_etkdgv3_test.pkl \
    --model_config_path ./src/molnetpack/config/molnet_ccs.yml \
    --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
-   --checkpoint_path ./check_point/molnet_<version>_ccs_etkdgv3_tl.pt \
+   --checkpoint_path ./check_point/molnet_ccs_etkdgv3_tl.pt \
    --transfer \
-   --resume_path ./check_point/molnet_<version>_qtof_etkdgv3.pt 
+   --resume_path ./check_point/molnet_qtof_etkdgv3.pt 

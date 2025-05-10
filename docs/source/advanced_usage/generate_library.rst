@@ -51,8 +51,8 @@ Use the following commands to generate MS/MS spectra. The model configuration is
      python ./src/pred.py --test_data ./data/hmdb/hmdb_etkdgv3_$i.pkl \
      --model_config_path ./src/molnetpack/config/molnet.yml \
      --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
-     --resume_path ./check_point/molnet_<version>_qtof_etkdgv3.pt \
-     --result_path ./data/hmdb/molnet_<version>_hmdb_etkdgv3_$i.mgf
+     --resume_path ./check_point/molnet_qtof_etkdgv3.pt \
+     --result_path ./data/hmdb/molnet_hmdb_etkdgv3_$i.mgf
    done
 
 Using molecules from RefMet
@@ -93,5 +93,5 @@ Use the following commands to generate MS/MS spectra. The model configuration is
    python ./src/pred.py --test_data ./data/refmet/refmet_etkdgv3.pkl \
    --model_config_path ./src/molnetpack/config/molnet.yml \
    --data_config_path ./src/molnetpack/config/preprocess_etkdgv3.yml \
-   --resume_path ./check_point/molnet_<version>_qtof_etkdgv3.pt \
-   --result_path ./data/refmet/molnet_<version>_refmet_etkdgv3.mgf
+   --resume_path ./check_point/molnet_qtof_etkdgv3.pt \
+   --result_path ./data/refmet/molnet_refmet_etkdgv3.mgf
