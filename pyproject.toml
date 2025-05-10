@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "molnetpack"
-version = {attr = "molnetpack.__version__"}
+version = "v1.2.0"
 authors = [
     { name="Yuhui Hong" },
     { name="Sujun Li" },
