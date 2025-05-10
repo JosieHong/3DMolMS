@@ -41,7 +41,7 @@ def mgf2pkl(spectra, encoder):
 	for idx, spectrum in enumerate(tqdm(spectra)): 
 		# mol array
 		assert encoder['conf_type'] != 'origin' # do not support the original conformation
-		good_conf, xyz_arr, atom_type = conformation_array(smiles=spectrum['params']['smiles'], 
+		good_conf, xyz_arr, atom_type = conformation_array(x=spectrum['params']['smiles'], 
 															conf_type=encoder['conf_type']) 
 		# There are some limitations of conformation generation methods. 
 		# e.g. https://github.com/rdkit/rdkit/issues/5145

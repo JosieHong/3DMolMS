@@ -38,6 +38,9 @@ if __name__ == "__main__":
 						help='path to configuration')
 	args = parser.parse_args()
 
+	seed = 42
+	np.random.seed(seed)
+	
 	# create the directory if not exists
 	if not os.path.exists(args.pkl_dir): 
 		os.makedirs(args.pkl_dir)
@@ -186,4 +189,3 @@ if __name__ == "__main__":
 			print('Save {}'.format(out_path))
 
 	print('Done!')
-

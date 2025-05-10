@@ -109,8 +109,8 @@ def parse_collision_energy(ce_str, precursor_mz, charge=1):
 		r"^[\d]+[.]?[\d]*[ ]?nce$": lambda x: float(x.rstrip(' nce')), 
 		r"^[\d]+[.]?[\d]*[ ]?\(nce\)$": lambda x: float(x.rstrip(' (nce)')), 
 		r"^NCE=[\d]+\%$": lambda x: float(x.lstrip('NCE=').rstrip('%')), 
-        r"^[\d]+[.]?[\d]*\([Nn][Cc][Ee]\)$": lambda x: float(x.split('(')[0]), # 90(NCE)
-        r"^HCD \(NCE [\d]+[.]?[\d]*%\)$": lambda x: float(x.split(' ')[-1].rstrip('%)')), # HCD (NCE 40%)
+		r"^[\d]+[.]?[\d]*\([Nn][Cc][Ee]\)$": lambda x: float(x.split('(')[0]), # 90(NCE)
+		r"^HCD \(NCE [\d]+[.]?[\d]*%\)$": lambda x: float(x.split(' ')[-1].rstrip('%)')), # HCD (NCE 40%)
 		# CASMI
 		r"^[\d]+[.]?[\d]*[ ]?\(nominal\)$": lambda x: float(x.rstrip("(nominal)").rstrip(' ')), 
 	}
@@ -153,7 +153,7 @@ def conformation_array(x, conf_type):
 
 	elif conf_type == 'origin':
 		mol_from_smiles = Chem.AddHs(x)
-		
+				
 	elif conf_type == 'omega': 
 		raise ValueError('OMEGA conformation will be supported soon. ')
 	else:

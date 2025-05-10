@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader
 from molnetpack.model import MolNet_Oth
 from molnetpack.data_utils import conformation_array
 from molnetpack.dataset import MolCSV_Dataset
-
+from molnetpack import __version__
 
 
 def csv2pkl_wfilter(csv_path, encoder): 
@@ -72,15 +72,16 @@ def train_step(model, device, loader, optimizer, batch_size, num_points):
 	accuracy = 0
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader):
-			_, x, y = batch
+			_, x, mask, y = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
+			mask = mask.to(device=device)
 			y = y.to(device=device, dtype=torch.float)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			optimizer.zero_grad()
 			model.train()
-			pred = model(x, None, idx_base) 
+			pred = model(x, mask, None, idx_base) 
 			#pred = nn.functional.relu(pred) # ReLU
 			pred = pred.squeeze()
 			loss = nn.MSELoss()(pred, y)
@@ -100,14 +101,15 @@ def eval_step(model, device, loader, batch_size, num_points):
 	accuracy = 0
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader):
-			_, x, y = batch
+			_, x, mask, y = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
+			mask = mask.to(device=device)
 			y = y.to(device=device, dtype=torch.float)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			with torch.no_grad(): 
-				pred = model(x, None, idx_base) 
+				pred = model(x, mask, None, idx_base) 
 				#pred = nn.functional.relu(pred) # ReLU
 				pred = pred.squeeze()
 				
@@ -123,13 +125,14 @@ def test_step(model, device, loader, batch_size, num_points):
 	pred_list = []
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader): 
-			ids, x, _ = batch
+			ids, x, mask, _ = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
+			mask = mask.to(device=device)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			with torch.no_grad(): 
-				pred = model(x, None, idx_base) 
+				pred = model(x, mask, None, idx_base) 
 				#pred = nn.functional.relu(pred) # ReLU
 				pred = pred.squeeze() 
 				
@@ -290,7 +293,13 @@ if __name__ == "__main__":
 
 			if args.checkpoint_path != '':
 				print('Saving checkpoint...')
-				checkpoint = {'epoch': epoch, 'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict(), 'scheduler_state_dict': scheduler.state_dict(), 'best_val_mae': best_valid_mae, 'num_params': num_params}
+				checkpoint = {'version': __version__, 
+								'epoch': epoch, 
+								'model_state_dict': model.state_dict(), 
+								'optimizer_state_dict': optimizer.state_dict(), 
+								'scheduler_state_dict': scheduler.state_dict(), 
+								'best_val_mae': best_valid_mae, 
+								'num_params': num_params}
 				torch.save(checkpoint, args.checkpoint_path)
 
 			early_stop_patience = 0
@@ -308,9 +317,7 @@ if __name__ == "__main__":
 			break
 
 	if args.ex_model_path != '': # export the model
-		print('Export the model...')
-		model_scripted = torch.jit.script(model) # Export to TorchScript
-		model_scripted.save(args.ex_model_path) # Save
+		raise NotImplementedError('Exporting the model is not implemented yet!')
 
 	if args.result_path != '':
 		result_dir = "/".join(args.result_path.split('/')[:-1])

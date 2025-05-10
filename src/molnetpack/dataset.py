@@ -25,6 +25,11 @@ class MolMS_Dataset(Dataset):
 		if precursor_type:
 			data = self.filter_precursor_type(data, precursor_type)
 
+		# generate mask
+		for idx in range(len(data)): 
+			mask = ~np.all(data[idx]['mol'] == 0, axis=1)
+			data[idx]['mask'] = mask.astype(bool)
+
 		# data augmentation by flipping the x,y,z-coordinates
 		if data_augmentation: 
 			flipping_data = []
@@ -43,7 +48,7 @@ class MolMS_Dataset(Dataset):
 		return len(self.data)
 
 	def __getitem__(self, idx): 
-		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['spec'], self.data[idx]['env']
+		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['mask'], self.data[idx]['spec'], self.data[idx]['env']
 
 	def filter_precursor_type(self, data, precursor_type): 
 		filtered_data = []
@@ -60,13 +65,18 @@ class Mol_Dataset(Dataset):
 		if precursor_type:
 			data = self.filter_precursor_type(data, precursor_type)
 
+		# generate mask
+		for idx in range(len(data)): 
+			mask = ~np.all(data[idx]['mol'] == 0, axis=1)
+			data[idx]['mask'] = mask.astype(bool)
+
 		self.data = data
 
 	def __len__(self): 
 		return len(self.data)
 
 	def __getitem__(self, idx): 
-		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['env']
+		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['mask'], self.data[idx]['env']
 
 	def filter_precursor_type(self, data, precursor_type): 
 		filtered_data = []
@@ -84,11 +94,16 @@ class MolRT_Dataset(Dataset):
 			self.data = pickle.load(file)
 		print('Load {} data from {}'.format(len(self.data), path))
 
+		# generate mask
+		for idx in range(len(self.data)): 
+			mask = ~np.all(self.data[idx]['mol'] == 0, axis=1)
+			self.data[idx]['mask'] = mask.astype(bool)
+
 	def __len__(self): 
 		return len(self.data)
 
 	def __getitem__(self, idx): 
-		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['rt']
+		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['mask'], self.data[idx]['rt']
 
 		
 
@@ -98,11 +113,16 @@ class MolCCS_Dataset(Dataset):
 			self.data = pickle.load(file)
 		print('Load {} data from {}'.format(len(self.data), path))
 
+		# generate mask
+		for idx in range(len(self.data)): 
+			mask = ~np.all(self.data[idx]['mol'] == 0, axis=1)
+			self.data[idx]['mask'] = mask.astype(bool)
+
 	def __len__(self): 
 		return len(self.data)
 
 	def __getitem__(self, idx): 
-		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['ccs'], self.data[idx]['env']
+		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['mask'], self.data[idx]['ccs'], self.data[idx]['env']
 
 
 
@@ -110,18 +130,23 @@ class MolPRE_Dataset(Dataset):
 	def __init__(self, path): 
 		with open(path, 'rb') as file: 
 			data = pickle.load(file)
-		# tmp
+		
 		self.data = []
 		for d in data: 
 			if 'mol' in d.keys(): 
 				self.data.append(d)
 		print('Load {} data from {}'.format(len(self.data), path))
 
+		# generate mask
+		for idx in range(len(self.data)): 
+			mask = ~np.all(self.data[idx]['mol'] == 0, axis=1)
+			self.data[idx]['mask'] = mask.astype(bool)
+
 	def __len__(self): 
 		return len(self.data)
 
 	def __getitem__(self, idx): 
-		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['y']
+		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['mask'], self.data[idx]['y']
 
 
 
@@ -135,11 +160,16 @@ class MolCSV_Dataset(Dataset):
 		elif mode == 'data': 
 			self.data = x
 
+		# generate mask
+		for idx in range(len(self.data)): 
+			mask = ~np.all(self.data[idx]['mol'] == 0, axis=1)
+			self.data[idx]['mask'] = mask.astype(bool)
+
 	def __len__(self): 
 		return len(self.data)
 
 	def __getitem__(self, idx): 
-		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['prop']
+		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['mask'], self.data[idx]['prop']
 
 class MolCSV_Test_Dataset(Dataset): 
 	def __init__(self, x, mode='path'): 
@@ -151,8 +181,13 @@ class MolCSV_Test_Dataset(Dataset):
 		elif mode == 'data': 
 			self.data = x
 
+		# generate mask
+		for idx in range(len(self.data)): 
+			mask = ~np.all(self.data[idx]['mol'] == 0, axis=1)
+			self.data[idx]['mask'] = mask.astype(bool)
+
 	def __len__(self): 
 		return len(self.data)
 
 	def __getitem__(self, idx): 
-		return self.data[idx]['title'], self.data[idx]['mol']
+		return self.data[idx]['title'], self.data[idx]['mol'], self.data[idx]['mask']

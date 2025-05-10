@@ -16,21 +16,24 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Preprocess the Data')
 	parser.add_argument('--raw_dir', type=str, default='./data/hmdb/',
 						help='path to raw data')
+	parser.add_argument('--sdf_file', type=str, default='structures.sdf',
+						help='name of the sdf file')
 	parser.add_argument('--pkl_dir', type=str, default='./data/hmdb/',
 						help='path to pkl data')
 	parser.add_argument('--data_config_path', type=str, default='./config/preprocess_hmdb.yml',
 						help='path to configuration')
 	args = parser.parse_args()
 
-	assert os.path.exists(os.path.join(args.raw_dir, 'structures.sdf'))
+	sdf_path = os.path.join(args.raw_dir, args.sdf_file)
+	assert os.path.exists(sdf_path)
 
 	# load the configurations
 	with open(args.data_config_path, 'r') as f: 
 		config = yaml.load(f, Loader=yaml.FullLoader)
 
 	# load the data in sdf
-	supp = Chem.SDMolSupplier(os.path.join(args.raw_dir, 'structures.sdf'))
-	print('Read {} data from {}'.format(len(supp), os.path.join(args.raw_dir, 'structures.sdf')))
+	supp = Chem.SDMolSupplier(sdf_path)
+	print('Read {} data from {}'.format(len(supp), sdf_path))
 
 	# split the HMDB by chunks
 	chunk_size = 10000

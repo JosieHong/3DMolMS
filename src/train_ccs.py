@@ -1,8 +1,3 @@
-'''
-Date: 2023-10-03 21:09:14
-LastEditors: yuhhong
-LastEditTime: 2023-10-20 17:16:17
-'''
 import os
 import argparse
 import numpy as np
@@ -16,57 +11,64 @@ from torch.utils.data import DataLoader
 
 from molnetpack import MolNet_Oth
 from molnetpack import MolCCS_Dataset
+from molnetpack import __version__
 
 def get_lr(optimizer):
 	for param_group in optimizer.param_groups:
 		return param_group['lr']
 
 def train_step(model, device, loader, optimizer, batch_size, num_points): 
-	accuracy = 0
+	mae = 0
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader):
-			_, x, y, env = batch
+			_, x, mask, y, env = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
+			mask = mask.to(device=device)
 			y = y.to(device=device, dtype=torch.float)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 			env = env.to(device=device, dtype=torch.float)
 
 			optimizer.zero_grad()
 			model.train()
-			pred = model(x, env, idx_base) 
+			pred = model(x, mask, env, idx_base) 
 			loss = nn.MSELoss()(pred, y)
 			loss.backward()
 
+			current_mae = torch.abs(pred - y).mean().item()
+			
+			# Update the progress bar with both loss and MAE
 			bar.set_description('Train')
-			bar.set_postfix(lr=get_lr(optimizer), loss=loss.item())
+			bar.set_postfix(lr=get_lr(optimizer), loss=f"{loss.item():.4f}", mae=f"{current_mae:.4f}")
 			bar.update(1)
 
 			optimizer.step()
-
-			accuracy += torch.abs(pred - y).mean().item()
-	return accuracy / (step + 1)
+			
+			# Accumulate MAE for final average
+			mae += current_mae
+	return mae / (step + 1)
 
 def eval_step(model, device, loader, batch_size, num_points): 
 	model.eval()
-	accuracy = 0
+	mae = 0
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader):
-			_, x, y, env = batch
+			_, x, mask, y, env = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
+			mask = mask.to(device=device)
 			y = y.to(device=device, dtype=torch.float)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 			env = env.to(device=device, dtype=torch.float)
 
 			with torch.no_grad(): 
-				pred = model(x, env, idx_base) 
+				pred = model(x, mask, env, idx_base) 
 				
 			bar.set_description('Eval')
 			bar.update(1)
 
-			accuracy += torch.abs(pred - y).mean().item()
-	return accuracy / (step + 1)
+			mae += torch.abs(pred - y).mean().item()
+	return mae / (step + 1)
 
 def init_random_seed(seed):
 	np.random.seed(seed)
@@ -107,6 +109,8 @@ if __name__ == "__main__":
 	with open(args.model_config_path, 'r') as f: 
 		config = yaml.load(f, Loader=yaml.FullLoader)
 	print('Load the model & training configuration from {}'.format(args.model_config_path))
+	# configuration check
+	assert config['model']['batch_size'] == config['train']['batch_size'], "Batch size should be the same in model and training configuration"
 
 	# 1. Data
 	train_set = MolCCS_Dataset(args.train_data)
@@ -134,14 +138,14 @@ if __name__ == "__main__":
 
 	# 3. Train
 	optimizer = optim.AdamW(model.parameters(), lr=config['train']['lr'])
-	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10)
+	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=20)
 	if args.transfer and args.resume_path != '': 
 		print("Load the pretrained encoder (freeze the encoder)...")
 		state_dict = torch.load(args.resume_path, map_location=device, weights_only=True)['model_state_dict']
 		encoder_dict = {}
 		for name, param in state_dict.items(): 
 			if not name.startswith("decoder"): 
-				param.requires_grad = False # freeze the encoder
+				# param.requires_grad = False # freeze the encoder
 				encoder_dict[name] = param
 		model.load_state_dict(encoder_dict, strict=False)
 	elif args.resume_path != '':
@@ -149,14 +153,14 @@ if __name__ == "__main__":
 		model.load_state_dict(torch.load(args.resume_path, map_location=device, weights_only=True)['model_state_dict'])
 		optimizer.load_state_dict(torch.load(args.resume_path, map_location=device, weights_only=True)['optimizer_state_dict'])
 		scheduler.load_state_dict(torch.load(args.resume_path, map_location=device, weights_only=True)['scheduler_state_dict'])
-		best_valid_mae = torch.load(args.resume_path, weights_only=True)['best_val_mae']
+		best_valid_mae = torch.load(args.resume_path, weights_only=True)['best_val_mae'] 
 
 	if args.checkpoint_path != '':
 		checkpoint_dir = "/".join(args.checkpoint_path.split('/')[:-1])
 		os.makedirs(checkpoint_dir, exist_ok = True)
 
 	best_valid_mae = 999999
-	early_stop_step = 20
+	early_stop_step = 60
 	early_stop_patience = 0
 	for epoch in range(1, config['train']['epochs'] + 1): 
 		print("\n=====Epoch {}".format(epoch))
@@ -171,7 +175,14 @@ if __name__ == "__main__":
 
 			if args.checkpoint_path != '':
 				print('Saving checkpoint...')
-				checkpoint = {'epoch': epoch, 'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict(), 'scheduler_state_dict': scheduler.state_dict(), 'best_val_mae': best_valid_mae, 'num_params': num_params}
+				checkpoint = {'version': __version__, 
+								'epoch': epoch, 
+								'model_state_dict': model.state_dict(), 
+								'optimizer_state_dict': optimizer.state_dict(), 
+								'scheduler_state_dict': scheduler.state_dict(), 
+								'best_val_mae': best_valid_mae, 
+								'num_params': num_params, 
+							}
 				torch.save(checkpoint, args.checkpoint_path)
 
 			early_stop_patience = 0
@@ -189,6 +200,4 @@ if __name__ == "__main__":
 			break
 
 	if args.ex_model_path != '': # export the model
-		print('Export the model...')
-		model_scripted = torch.jit.script(model) # Export to TorchScript
-		model_scripted.save(args.ex_model_path) # Save
+		raise NotImplementedError("Exporting the model is not implemented yet.")

@@ -1,8 +1,3 @@
-'''
-Date: 2023-10-03 21:09:14
-LastEditors: yuhhong
-LastEditTime: 2023-10-20 17:16:17
-'''
 import os
 import argparse
 import numpy as np
@@ -16,55 +11,74 @@ from torch.utils.data import DataLoader
 
 from molnetpack import MolNet_Oth
 from molnetpack import MolRT_Dataset
+from molnetpack import __version__
 
 def get_lr(optimizer):
 	for param_group in optimizer.param_groups:
 		return param_group['lr']
 
+def collect_training_targets(loader, device):
+	all_targets = []
+	for _, batch in enumerate(loader):
+		_, _, _, y = batch
+		all_targets.append(y.cpu().numpy())
+	return np.concatenate(all_targets, axis=0).reshape(-1, 1)
+
 def train_step(model, device, loader, optimizer, batch_size, num_points): 
-	accuracy = 0
+	mae = 0
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader):
-			_, x, y = batch
+			_, x, mask, y = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
+			mask = mask.to(device=device)
 			y = y.to(device=device, dtype=torch.float)
+			y_scaled = model.scale(y) if model.scaler is not None else y
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			optimizer.zero_grad()
 			model.train()
-			pred = model(x, None, idx_base) 
-			loss = nn.MSELoss()(pred, y)
+			pred_scaled = model(x, mask, None, idx_base) 
+			loss = nn.MSELoss()(pred_scaled, y_scaled)
 			loss.backward()
 
+			# Get unscaled predictions for MAE calculation
+			pred = model.unscale(pred_scaled) if model.scaler is not None else pred_scaled
+			current_mae = torch.abs(pred - y).mean().item()
+			
+			# Update the progress bar with both loss and MAE
 			bar.set_description('Train')
-			bar.set_postfix(lr=get_lr(optimizer), loss=loss.item())
+			bar.set_postfix(lr=get_lr(optimizer), loss=f"{loss.item():.4f}", mae=f"{current_mae:.4f}")
 			bar.update(1)
 
 			optimizer.step()
-
-			accuracy += torch.abs(pred - y).mean().item()
-	return accuracy / (step + 1)
+			
+			# Accumulate MAE for final average
+			mae += current_mae
+			
+	return mae / (step + 1)
 
 def eval_step(model, device, loader, batch_size, num_points): 
 	model.eval()
-	accuracy = 0
+	mae = 0
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader):
-			_, x, y = batch
+			_, x, mask, y = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
+			mask = mask.to(device=device)
 			y = y.to(device=device, dtype=torch.float)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			with torch.no_grad(): 
-				pred = model(x, None, idx_base) 
-				
+				pred_scaled = model(x, mask, None, idx_base) 
+								
 			bar.set_description('Eval')
 			bar.update(1)
 
-			accuracy += torch.abs(pred - y).mean().item()
-	return accuracy / (step + 1)
+			pred = model.unscale(pred_scaled) if model.scaler is not None else pred_scaled
+			mae += torch.abs(pred - y).mean().item()
+	return mae / (step + 1)
 
 def init_random_seed(seed):
 	np.random.seed(seed)
@@ -99,6 +113,8 @@ if __name__ == "__main__":
 						help='Which gpu to use if any')
 	parser.add_argument('--no_cuda', type=bool, default=False,
 						help='Enables CUDA training')
+	parser.add_argument('--use_scaler', type=bool, default=False,
+						help='Whether to use scaler for training')
 	args = parser.parse_args()
 
 	init_random_seed(args.seed)
@@ -134,29 +150,37 @@ if __name__ == "__main__":
 
 	# 3. Train
 	optimizer = optim.AdamW(model.parameters(), lr=config['train']['lr'])
-	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10)
+	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=20)
 	if args.transfer and args.resume_path != '': 
 		print("Load the pretrained encoder (freeze the encoder)...")
 		state_dict = torch.load(args.resume_path, map_location=device, weights_only=True)['model_state_dict']
 		encoder_dict = {}
 		for name, param in state_dict.items(): 
 			if not name.startswith("decoder"): 
-				param.requires_grad = False # freeze the encoder
+				# param.requires_grad = False # freeze the encoder
 				encoder_dict[name] = param
 		model.load_state_dict(encoder_dict, strict=False)
+		if args.use_scaler: # training from pretraining and using scaler
+			training_targets = collect_training_targets(train_loader, device)
+			model.fit_scaler(training_targets)
 	elif args.resume_path != '':
 		print("Load the checkpoints...")
-		model.load_state_dict(torch.load(args.resume_path, map_location=device, weights_only=True)['model_state_dict'])
-		optimizer.load_state_dict(torch.load(args.resume_path, map_location=device, weights_only=True)['optimizer_state_dict'])
-		scheduler.load_state_dict(torch.load(args.resume_path, map_location=device, weights_only=True)['scheduler_state_dict'])
-		best_valid_mae = torch.load(args.resume_path, weights_only=True)['best_val_mae']
+		checkpoint = torch.load(args.resume_path, map_location=device, weights_only=False)
+		model.load_state_dict(checkpoint['model_state_dict'])
+		optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+		scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+		best_valid_mae = checkpoint['best_val_mae']
+		model.set_scaler(checkpoint['scaler'])
+	elif args.use_scaler: # training from scratch and using scaler
+		training_targets = collect_training_targets(train_loader, device)
+		model.fit_scaler(training_targets)
 
 	if args.checkpoint_path != '':
 		checkpoint_dir = "/".join(args.checkpoint_path.split('/')[:-1])
 		os.makedirs(checkpoint_dir, exist_ok = True)
 
 	best_valid_mae = 999999
-	early_stop_step = 30
+	early_stop_step = 60
 	early_stop_patience = 0
 	for epoch in range(1, config['train']['epochs'] + 1): 
 		print("\n=====Epoch {}".format(epoch))
@@ -171,7 +195,15 @@ if __name__ == "__main__":
 
 			if args.checkpoint_path != '':
 				print('Saving checkpoint...')
-				checkpoint = {'epoch': epoch, 'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict(), 'scheduler_state_dict': scheduler.state_dict(), 'best_val_mae': best_valid_mae, 'num_params': num_params}
+				checkpoint = {'version': __version__, 
+								'epoch': epoch, 
+								'model_state_dict': model.state_dict(), 
+								'optimizer_state_dict': optimizer.state_dict(), 
+								'scheduler_state_dict': scheduler.state_dict(), 
+								'best_val_mae': best_valid_mae, 
+								'num_params': num_params,
+								'scaler': model.scaler,
+							}
 				torch.save(checkpoint, args.checkpoint_path)
 
 			early_stop_patience = 0
@@ -189,6 +221,4 @@ if __name__ == "__main__":
 			break
 
 	if args.ex_model_path != '': # export the model
-		print('Export the model...')
-		model_scripted = torch.jit.script(model) # Export to TorchScript
-		model_scripted.save(args.ex_model_path) # Save
+		raise NotImplementedError("Exporting the model is not implemented yet.")

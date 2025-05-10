@@ -16,7 +16,7 @@ train:
   lr: 0.0001
 
 test:
-  local_path: './check_point/molnet_ccs_etkdgv3.pt'
-  github_release_url: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.2.0/molnet_ccs_etkdgv3.zip'
+  local_path: './check_point/molnet_ccs_etkdgv3_tl.pt'
+  github_release_url: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.2.0/molnet_ccs_etkdgv3_tl.zip'
 
   

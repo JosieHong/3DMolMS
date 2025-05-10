@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "molnetpack"
-version = "1.1.10.post1"
+version = {attr = "molnetpack.__version__"}
 authors = [
     { name="Yuhui Hong" },
     { name="Sujun Li" },
@@ -52,3 +52,8 @@ dependencies = [
 Homepage = "https://github.com/JosieHong/3DMolMS/"
 Issues = "https://github.com/JosieHong/3DMolMS/issues"
 Changelog = "https://github.com/JosieHong/3DMolMS/blob/main/CHANGE_LOG.md"
+
+# For Read the Docs configuration
+[tool.sphinx]
+source_dir = "docs/source"
+build_dir = "docs/build"

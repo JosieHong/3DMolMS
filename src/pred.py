@@ -27,6 +27,7 @@ from molnetpack import MolNet_MS
 from molnetpack import Mol_Dataset
 from molnetpack import csv2pkl_wfilter, nce2ce, precursor_calculator
 from molnetpack import filter_spec, mgf2pkl, ms_vec2dict
+from molnetpack import __version__
 
 global batch_size
 batch_size = 1
@@ -39,14 +40,15 @@ def pred_step(model, device, loader, batch_size, num_points):
 	pred_list = []
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader):
-			ids, x, env = batch
+			ids, x, mask, env = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
+			mask = mask.to(device=device)
 			env = env.to(device=device, dtype=torch.float)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			with torch.no_grad(): 
-				pred = model(x, env, idx_base) 
+				pred = model(x, mask, env, idx_base) 
 				pred = pred / torch.max(pred) # normalize the output
 				
 			bar.set_description('Eval')

@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 
 from molnetpack import MolNet_MS
 from molnetpack import MolMS_Dataset
+from molnetpack import __version__
 
 def get_lr(optimizer):
 	for param_group in optimizer.param_groups:
@@ -27,16 +28,17 @@ def train_step(model, device, loader, optimizer, batch_size, num_points):
 	accuracy = 0
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader):
-			_, x, y, env = batch
+			_, x, mask, y, env = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
+			mask = mask.to(device=device)
 			y = y.to(device=device, dtype=torch.float)
 			env = env.to(device=device, dtype=torch.float)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 			
 			optimizer.zero_grad()
 			model.train()
-			pred = model(x, env, idx_base) 
+			pred = model(x, mask, env, idx_base) 
 			loss = reg_criterion(pred, y)
 			loss.backward()
 
@@ -57,15 +59,16 @@ def eval_step(model, device, loader, batch_size, num_points):
 	accuracy = 0
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader):
-			_, x, y, env = batch
+			_, x, mask, y, env = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
+			mask = mask.to(device=device)
 			y = y.to(device=device, dtype=torch.float)
 			env = env.to(device=device, dtype=torch.float)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			with torch.no_grad(): 
-				pred = model(x, env, idx_base) 
+				pred = model(x, mask, env, idx_base) 
 				pred = pred / torch.max(pred) # normalize the output
 				
 			bar.set_description('Eval')
@@ -196,7 +199,13 @@ if __name__ == "__main__":
 
 			if args.checkpoint_path != '':
 				print('Saving checkpoint...')
-				checkpoint = {'epoch': epoch, 'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict(), 'scheduler_state_dict': scheduler.state_dict(), 'best_val_acc': best_valid_acc, 'num_params': num_params}
+				checkpoint = {'version': __version__, 
+								'epoch': epoch, 
+								'model_state_dict': model.state_dict(), 
+								'optimizer_state_dict': optimizer.state_dict(), 
+								'scheduler_state_dict': scheduler.state_dict(), 
+								'best_val_acc': best_valid_acc, 
+								'num_params': num_params}
 				torch.save(checkpoint, args.checkpoint_path)
 
 			early_stop_patience = 0
@@ -224,9 +233,10 @@ if __name__ == "__main__":
 		
 		# Create example inputs with the same data types and shapes as expected by your model
 		x = torch.randn(batch_size, 21, num_points, device=device, dtype=torch.float)
+		mask = torch.ones(batch_size, num_points, device=device, dtype=torch.bool)
 		env = torch.randn(batch_size, 6, device=device, dtype=torch.float)
 		idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
-		example_inputs = (x, env, idx_base)
+		example_inputs = (x, mask, env, idx_base)
 
 		model.eval()
 		traced_model = torch.jit.trace(model, example_inputs)

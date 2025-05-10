@@ -21,6 +21,7 @@ from torch.utils.data import DataLoader
 from molnetpack.model import MolNet_Oth
 from molnetpack.data_utils import conformation_array
 from molnetpack.dataset import MolCSV_Test_Dataset
+from molnetpack import __version__
 
 def csv2pkl_wfilter(csv_path, encoder): 
 	'''
@@ -68,13 +69,14 @@ def test_step(model, device, loader, batch_size, num_points):
 	pred_list = []
 	with tqdm(total=len(loader)) as bar:
 		for step, batch in enumerate(loader): 
-			ids, x = batch
+			ids, x, mask = batch
 			x = x.to(device=device, dtype=torch.float)
 			x = x.permute(0, 2, 1)
+			mask = mask.to(device=device)
 			idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
 			with torch.no_grad(): 
-				pred = model(x, None, idx_base) 
+				pred = model(x, mask, None, idx_base) 
 				#pred = nn.functional.relu(pred) # ReLU
 				pred = pred.squeeze() 
 				

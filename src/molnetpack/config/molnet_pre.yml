@@ -4,7 +4,7 @@ model:
   max_atom_num: 300
   resolution: 0.2
   max_mz: 1500
-  batch_size: 32
+  batch_size: 64
   emb_dim: 2048 
   k: 5
   dropout: 0.2
@@ -19,4 +19,4 @@ train:
 
 test:
   local_path_qtof: './check_point/molnet_pre_etkdgv3.pt'
-  github_release_url: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.1.8/molnet_pre_etkdgv3.zip' 
+  github_release_url: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.2.0/molnet_pre_etkdgv3.zip' 

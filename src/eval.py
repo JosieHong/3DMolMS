@@ -16,7 +16,7 @@ def load_pickle_spectra(pickle_file):
 def load_mgf_spectra(mgf_file):
     return list(mgf.read(mgf_file))
 
-def generate_ms(x, y, resolution=1, max_mz=1500):
+def generate_ms(x, y, resolution=0.2, max_mz=1500):
     # Prepare parameters
     resolution = Decimal(str(resolution))
     max_mz = Decimal(str(max_mz))
