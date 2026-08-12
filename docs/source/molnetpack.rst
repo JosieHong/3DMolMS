@@ -21,15 +21,17 @@ PyTorch must be installed separately. Check the `official PyTorch website <https
 Using ``molnetpack`` for MS/MS prediction
 -----------------------------------------
 
-Sample inputs are at ``./examples/input_msms.csv`` and ``./examples/input_msms.mgf``. See :doc:`supported_formats` for the supported input/output formats; unsupported molecules are skipped automatically on load.
+Sample inputs are at ``./examples/demo_input.csv`` and ``./examples/demo_input.mgf``. See :doc:`supported_formats` for the supported input/output formats; unsupported molecules are skipped automatically on load.
 
 Instantiate a ``MolNet`` and load a CSV or MGF file with ``load_data``:
 
 .. autofunction:: molnetpack.MolNet.load_data
+   :no-index:
 
 Then predict the spectra with ``pred_msms``. Results are saved to the given path (MGF by default, or CSV if the filename ends in ``.csv``):
 
 .. autofunction:: molnetpack.MolNet.pred_msms
+   :no-index:
 
 For example:
 
@@ -41,7 +43,7 @@ For example:
    device = torch.device("cpu")   # or torch.device(f"cuda:{gpu_index}") for GPU
    molnet_engine = MolNet(device, seed=42)
 
-   molnet_engine.load_data(path_to_test_data='./examples/input_msms.csv')
+   molnet_engine.load_data(path_to_test_data='./examples/demo_input.csv')
    pred_spectra_df = molnet_engine.pred_msms(instrument='qtof')
 
 Plot predicted MS/MS
@@ -50,6 +52,7 @@ Plot predicted MS/MS
 Visualize a predicted spectrum with ``plot_msms``:
 
 .. autofunction:: molnetpack.plot_msms
+   :no-index:
 
 For example:
 
@@ -81,12 +84,13 @@ Retention time (RT)
 Use ``pred_rt`` after instantiating ``MolNet``. The model is trained on METLIN-SMRT, so predictions are under the same experimental conditions as that dataset.
 
 .. autofunction:: molnetpack.MolNet.pred_rt
+   :no-index:
 
 For example:
 
 .. code-block:: python
 
-   molnet_engine.load_data(path_to_test_data='./examples/input_rt.csv')
+   molnet_engine.load_data(path_to_test_data='./examples/demo_input.csv')
    rt_df = molnet_engine.pred_rt()
 
 Collision cross section (CCS)
@@ -95,12 +99,13 @@ Collision cross section (CCS)
 Use ``pred_ccs`` after instantiating ``MolNet``:
 
 .. autofunction:: molnetpack.MolNet.pred_ccs
+   :no-index:
 
 For example:
 
 .. code-block:: python
 
-   molnet_engine.load_data(path_to_test_data='./examples/input_ccs.csv')
+   molnet_engine.load_data(path_to_test_data='./examples/demo_input.csv')
    ccs_df = molnet_engine.pred_ccs()
 
 Molecular feature embedding
@@ -109,12 +114,13 @@ Molecular feature embedding
 Use ``save_features`` to extract encoder embeddings for downstream tasks:
 
 .. autofunction:: molnetpack.MolNet.save_features
+   :no-index:
 
 For example:
 
 .. code-block:: python
 
-   molnet_engine.load_data(path_to_test_data='./examples/input_savefeat.csv')
+   molnet_engine.load_data(path_to_test_data='./examples/demo_input.csv')
    ids, features = molnet_engine.save_features()
    print('Titles:', ids)
    print('Features shape:', features.shape)

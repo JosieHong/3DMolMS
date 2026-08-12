@@ -10,7 +10,7 @@ Installing from source code
 
    git clone https://github.com/JosieHong/3DMolMS.git
    cd 3DMolMS
-   pip install .
+   pip install -e .
 
 PyTorch must be installed separately. Check the `official PyTorch website <https://pytorch.org/get-started/locally/>`_ for the proper version for your system. For example:
 
@@ -18,24 +18,15 @@ PyTorch must be installed separately. Check the `official PyTorch website <https
 
    pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 
-Update package locally
-----------------------
-
-Every time you update the code, you can run the following command to update the package:
-
-.. code-block:: bash
-
-   cd 3DMolMS
-   pip install .
-
-Then you can use the package for various tasks as shown in the :doc:`./usage/index` and :doc:`./advanced_usage/index` page.
+The ``-e`` (editable) install means code changes take effect immediately, with no
+reinstall needed. Then you can use the package for various tasks as shown in the :doc:`./usage/index` and :doc:`./advanced_usage/index` page.
 
 Requirements
 ------------
 
 3DMolMS has the following dependencies:
 
-* Python 3.8+
+* Python 3.10+
 * PyTorch
 * RDKit
 * NumPy

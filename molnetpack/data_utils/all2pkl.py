@@ -1,75 +1,76 @@
+"""Converters from raw inputs (MGF spectra, CSV/DataFrame rows, SDF molecules) to the
+pickle record format consumed by the datasets in :mod:`molnetpack.dataset`.
+
+pkl format for training::
+
+    [
+        {'title': <str>, 'smiles': <str>,
+         'mol': <numpy array>, 'env': <numpy array>, 'spec': <numpy array>},
+        ...
+    ]
+
+pkl format for prediction is identical but without ``'spec'``. In both, ``'env'`` is
+``np.array([normalized collision energy] + one-hot encoding of the precursor type)``,
+and every record carries the covalent bond graph as ``'neighbor_idx'`` / ``'neighbor_mask'``.
+"""
+
+import logging
+
 import numpy as np
-from tqdm import tqdm
-from pyteomics import mgf
 import pandas as pd
+from tqdm import tqdm
 
-from rdkit import Chem
-
-# ignore the warning
-from rdkit import RDLogger
-
-RDLogger.DisableLog("rdApp.*")
+from rdkit import Chem, RDLogger
 from rdkit.Chem import Descriptors
 
-from .utils import (
+from .encoding import (
+    bond_graph_array,
     conformation_array,
     precursor_calculator,
     parse_collision_energy,
     generate_ms,
-    ce2nce,
 )
+from .._compat import deprecated_alias
+
+RDLogger.DisableLog("rdApp.*")
+
+logger = logging.getLogger(__name__)
 
 
-"""pkl for training format
-[
-	{'title': <str>, 'smiles': <string>, 
-		'mol': <numpy array>, 'env': <numpy array>, 'spec': <numpy array>}, 
-	{'title': <str>, 'smiles': <string>, 
-		'mol': <numpy array>, 'env': <numpy array>, 'spec': <numpy array>}, 
-	....
-]
-where 'env' is formated as np.array([normalized collision energy, one hot encoding of precursor types]). 
-"""
-
-"""pkl for prediction format
-[
-	{'title': <str>, 'smiles': <string>, 
-		'mol': <numpy array>, 'env': <numpy array>}, 
-	{'title': <str>, 'smiles': <string>, 
-		'mol': <numpy array>, 'env': <numpy array>}, 
-	....
-]
-where 'env' is formated as np.array([normalized collision energy, one hot encoding of precursor types]). 
-"""
+def _padded_mol_array(xyz_arr, atom_type, encoder):
+    """Concatenate coordinates+attributes with the atom-type one-hot and pad to max_atom_num."""
+    atom_type_one_hot = np.array([encoder["atom_type"][atom] for atom in atom_type])
+    mol_arr = np.concatenate([xyz_arr, atom_type_one_hot], axis=1)
+    return np.pad(
+        mol_arr,
+        ((0, encoder["max_atom_num"] - xyz_arr.shape[0]), (0, 0)),
+        constant_values=0,
+    )
 
 
-# used in training and evaluation -------------------------------------------------------------------------
+def _require_generated_conformation(encoder):
+    if encoder["conf_type"] == "origin":
+        raise ValueError(
+            "conf_type 'origin' is not supported here; conformations must be generated"
+        )
+
+
+# used in training and evaluation ------------------------------------------------------------
 def mgf2pkl(spectra, encoder):
+    """Convert filtered MGF spectra (see :func:`filter_spec`) into training records."""
+    _require_generated_conformation(encoder)
     data = []
-    for idx, spectrum in enumerate(tqdm(spectra)):
-        # mol array
-        assert (
-            encoder["conf_type"] != "origin"
-        )  # do not support the original conformation
+    for spectrum in tqdm(spectra):
+        # mol array. Conformation generation has known limitations
+        # (e.g. https://github.com/rdkit/rdkit/issues/5145); skip unsolvable molecules.
         good_conf, xyz_arr, atom_type = conformation_array(
             x=spectrum["params"]["smiles"], conf_type=encoder["conf_type"]
         )
-        # There are some limitations of conformation generation methods.
-        # e.g. https://github.com/rdkit/rdkit/issues/5145
-        # Let's skip the unsolvable molecules.
         if not good_conf:
             continue
-        atom_type_one_hot = np.array([encoder["atom_type"][atom] for atom in atom_type])
-        assert xyz_arr.shape[0] == atom_type_one_hot.shape[0]
+        mol_arr = _padded_mol_array(xyz_arr, atom_type, encoder)
 
-        mol_arr = np.concatenate([xyz_arr, atom_type_one_hot], axis=1)
-        mol_arr = np.pad(
-            mol_arr,
-            ((0, encoder["max_atom_num"] - xyz_arr.shape[0]), (0, 0)),
-            constant_values=0,
-        )
-
-        # spec array
+        # spec array. After binning, some spectra do not have enough peaks.
         good_spec, spec_arr = generate_ms(
             x=spectrum["m/z array"],
             y=spectrum["intensity array"],
@@ -78,9 +79,7 @@ def mgf2pkl(spectra, encoder):
             max_mz=encoder["max_mz"],
             charge=int(encoder["type2charge"][spectrum["params"]["precursor_type"]]),
         )
-        if (
-            not good_spec
-        ):  # after binning, some spectra do not have enough peaks' number
+        if not good_spec:
             continue
 
         # env array
@@ -89,18 +88,28 @@ def mgf2pkl(spectra, encoder):
             precursor_mz=float(spectrum["params"]["precursor_mz"]),
             charge=int(encoder["type2charge"][spectrum["params"]["precursor_type"]]),
         )
-        if ce == None and nce == None:
+        if ce is None and nce is None:
             continue
         precursor_type_one_hot = encoder["precursor_type"][
             spectrum["params"]["precursor_type"]
         ]
         env_arr = np.array([nce] + precursor_type_one_hot)
 
+        # Covalent bond graph. The encoder aggregates over bonded neighbours and refuses to
+        # run without the graph, so every record must carry it.
+        nidx, nmask = bond_graph_array(
+            spectrum["params"]["smiles"], max_atom_num=encoder["max_atom_num"]
+        )
+        if nidx is None:
+            continue
+
         data.append(
             {
                 "title": spectrum["params"]["title"],
                 "smiles": spectrum["params"]["smiles"],
                 "mol": mol_arr,
+                "neighbor_idx": nidx,
+                "neighbor_mask": nmask,
                 "spec": spec_arr,
                 "env": env_arr,
             }
@@ -109,59 +118,47 @@ def mgf2pkl(spectra, encoder):
 
 
 # used in prediction ------------------------------------------------------------------------------
-def csv2pkl_wfilter(csv_path, encoder):
-    """
-    This function is only used in prediction, so by default, the spectra are not contained.
+def molecules_to_records(csv_path, encoder):
+    """Convert CSV rows (or a DataFrame) into prediction records, filtering unusable molecules.
+
+    This function is only used in prediction, so the records carry no spectra.
 
     ``csv_path`` may be a path to a CSV file or an already-loaded pandas DataFrame.
+
+    (Formerly ``csv2pkl_wfilter``, which remains available as an alias.)
     """
+    _require_generated_conformation(encoder)
     df = csv_path if isinstance(csv_path, pd.DataFrame) else pd.read_csv(csv_path)
     data = []
-    for idx, row in df.iterrows():
-        # mol array
-        assert (
-            encoder["conf_type"] != "origin"
-        )  # do not support the original conformation
+    for _, row in df.iterrows():
+        # filter 1: conformation generation has known limitations
+        # (e.g. https://github.com/rdkit/rdkit/issues/5145); skip unsolvable molecules.
         good_conf, xyz_arr, atom_type = conformation_array(
             x=row["SMILES"], conf_type=encoder["conf_type"]
         )
-        # There are some limitations of conformation generation methods.
-        # e.g. https://github.com/rdkit/rdkit/issues/5145
-        # Let's skip the unsolvable molecules.
-        if not good_conf:  # filter 1
-            # print('Can not generate correct conformation: {} {}'.format(row['SMILES'], row['ID']))
+        if not good_conf:
+            logger.debug("Cannot generate conformation: %s (%s)", row["SMILES"], row["ID"])
             continue
-        if xyz_arr.shape[0] > encoder["max_atom_num"]:  # filter 2
-            # print('Atomic number ({}) exceed the limitation ({})'.format(encoder['max_atom_num'], xyz_arr.shape[0]))
+        # filter 2: molecule size
+        if xyz_arr.shape[0] > encoder["max_atom_num"]:
+            logger.debug(
+                "Atom count %d exceeds the limit %d (%s)",
+                xyz_arr.shape[0], encoder["max_atom_num"], row["ID"],
+            )
             continue
-        # filter 3
-        rare_atom_flag = False
-        rare_atom = ""
-        for atom in list(set(atom_type)):
-            if atom not in encoder["atom_type"].keys():
-                rare_atom_flag = True
-                rare_atom = atom
-                break
-        if rare_atom_flag:
-            # print('Unsupported atom type: {} {}'.format(rare_atom, row['ID']))
+        # filter 3: unsupported atom types
+        unsupported = set(atom_type) - set(encoder["atom_type"])
+        if unsupported:
+            logger.debug("Unsupported atom type(s) %s (%s)", sorted(unsupported), row["ID"])
             continue
 
-        atom_type_one_hot = np.array([encoder["atom_type"][atom] for atom in atom_type])
-        assert xyz_arr.shape[0] == atom_type_one_hot.shape[0]
-
-        mol_arr = np.concatenate([xyz_arr, atom_type_one_hot], axis=1)
-        mol_arr = np.pad(
-            mol_arr,
-            ((0, encoder["max_atom_num"] - xyz_arr.shape[0]), (0, 0)),
-            constant_values=0,
-        )
+        mol_arr = _padded_mol_array(xyz_arr, atom_type, encoder)
 
         # env array
         if "Collision_Energy" in row.keys():
-            if (
-                row["Precursor_Type"] not in encoder["precursor_type"].keys()
-            ):  # filter 4
-                # print('Unsupported precusor type: {}'.format(row['Precursor_Type']))
+            # filter 4: unsupported precursor type
+            if row["Precursor_Type"] not in encoder["precursor_type"]:
+                logger.debug("Unsupported precursor type: %s", row["Precursor_Type"])
                 continue
             precursor_mz = precursor_calculator(
                 row["Precursor_Type"],
@@ -172,12 +169,11 @@ def csv2pkl_wfilter(csv_path, encoder):
                 precursor_mz=precursor_mz,
                 charge=int(encoder["type2charge"][row["Precursor_Type"]]),
             )
-            if ce == None and nce == None:
+            if ce is None and nce is None:
                 continue
         if "Precursor_Type" in row.keys():
             precursor_type_one_hot = encoder["precursor_type"][row["Precursor_Type"]]
 
-        # env array
         if (
             "Collision_Energy" in row.keys() and "Precursor_Type" in row.keys()
         ):  # (msms prediction)
@@ -191,45 +187,56 @@ def csv2pkl_wfilter(csv_path, encoder):
         else:  # no env (rt prediction: input zeros)
             env_arr = np.zeros(1 + len(encoder["precursor_type"]))
 
+        # covalent bond graph -- required by the released encoder (see mgf2pkl)
+        nidx, nmask = bond_graph_array(row["SMILES"], max_atom_num=encoder["max_atom_num"])
+        if nidx is None:
+            continue
+
         data.append(
             {
                 "title": row["ID"],
                 "smiles": row["SMILES"],
                 "mol": mol_arr,
+                "neighbor_idx": nidx,
+                "neighbor_mask": nmask,
                 "env": env_arr,
             }
         )
     return data
 
 
-# used in generating reference library ------------------------------------------------------------------------------
+# Deprecated name: it accepts a DataFrame as well as a CSV and returns records, not a pkl.
+csv2pkl_wfilter = deprecated_alias(molecules_to_records, "csv2pkl_wfilter")
+
+
+# used in generating reference library -------------------------------------------------------
 def sdf2pkl_with_cond(suppl, encoder, collision_energies, precursor_types):
+    """Expand SDF molecules into one prediction record per (collision energy, adduct) pair."""
     data = []
     bad_conformation = 0
-    for idx, mol in enumerate(tqdm(suppl)):
+    for mol in tqdm(suppl):
         # mol array
         if encoder["conf_type"] == "origin":
             x = mol  # input molecule
         else:
             x = Chem.MolToSmiles(mol, isomericSmiles=True)  # input smiles
+        # Conformation generation has known limitations
+        # (e.g. https://github.com/rdkit/rdkit/issues/5145); skip unsolvable molecules.
         good_conf, xyz_arr, atom_type = conformation_array(
             x=x, conf_type=encoder["conf_type"]
         )
-        # There are some limitations of conformation generation methods.
-        # e.g. https://github.com/rdkit/rdkit/issues/5145
-        # Let's skip the unsolvable molecules.
         if not good_conf:
             bad_conformation += 1
             continue
-        atom_type_one_hot = np.array([encoder["atom_type"][atom] for atom in atom_type])
-        assert xyz_arr.shape[0] == atom_type_one_hot.shape[0]
+        mol_arr = _padded_mol_array(xyz_arr, atom_type, encoder)
 
-        mol_arr = np.concatenate([xyz_arr, atom_type_one_hot], axis=1)
-        mol_arr = np.pad(
-            mol_arr,
-            ((0, encoder["max_atom_num"] - xyz_arr.shape[0]), (0, 0)),
-            constant_values=0,
-        )
+        # covalent bond graph -- required by the released encoder (see mgf2pkl). Computed once per
+        # molecule, outside the collision-energy / adduct loop below.
+        smiles = Chem.MolToSmiles(mol, isomericSmiles=True)
+        nidx, nmask = bond_graph_array(smiles, max_atom_num=encoder["max_atom_num"])
+        if nidx is None:
+            bad_conformation += 1
+            continue
 
         # env array
         for ce_str in collision_energies:
@@ -240,23 +247,23 @@ def sdf2pkl_with_cond(suppl, encoder, collision_energies, precursor_types):
                     precursor_mz=precursor_mz,
                     charge=int(encoder["type2charge"][add]),
                 )
-                if ce == None and nce == None:
+                if ce is None and nce is None:
                     continue
                 precursor_type_one_hot = encoder["precursor_type"][add]
                 env_arr = np.array([nce] + precursor_type_one_hot)
 
                 data.append(
                     {
-                        "title": mol.GetProp("DATABASE_ID")
-                        + "_"
-                        + ce_str
-                        + "_"
-                        + str(add),
-                        "smiles": Chem.MolToSmiles(mol, isomericSmiles=True),
+                        "title": "{}_{}_{}".format(
+                            mol.GetProp("DATABASE_ID"), ce_str, add
+                        ),
+                        "smiles": smiles,
                         "mol": mol_arr,
+                        "neighbor_idx": nidx,
+                        "neighbor_mask": nmask,
                         "env": env_arr,
                     }
                 )
 
-    print("# mol: Bad conformation", bad_conformation)
+    logger.info("Skipped %d molecules with bad conformations", bad_conformation)
     return data

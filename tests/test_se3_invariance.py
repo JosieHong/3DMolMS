@@ -1,15 +1,15 @@
-"""SE(3)-invariance tests for the MolConv2 encoder (v2).
+"""SE(3)-invariance tests for the MolConv encoder.
 
-MolConv2 builds its first-layer Gram matrix from *relative* displacement
-vectors ``(x_j - x_i)`` instead of the absolute positions ``x_j`` used by the
-legacy v1 (``MolConv1``).  The inner product ``<(x_j - x_i), (x_k - x_i)>`` is the
+MolConv builds its first-layer Gram matrix from *relative* displacement
+vectors ``(x_j - x_i)`` instead of the absolute positions ``x_j`` used by
+the removed legacy v1 layer.  The inner product ``<(x_j - x_i), (x_k - x_i)>`` is the
 (distance-scaled) angle at atom i, which is invariant to both rotation and
 translation. Because the first layer strips the raw xyz from its output, that
 invariance propagates through the whole encoder.
 
-For the invariance to hold end-to-end MolConv2 also (a) excludes zero-padding
-atoms from real atoms' kNN while keeping padding query rows inert, and (b)
-centers coordinates on the real-atom centroid in the first layer. These tests
+For the invariance to hold end-to-end MolConv also relies on (a) the supplied
+neighbour graph's padded slots being self-pointing (so they stay inert), and (b)
+centering coordinates on the real-atom centroid in the first layer. These tests
 check the property directly, with random weights — invariance is structural, so
 no trained checkpoint is required.
 
@@ -26,7 +26,7 @@ confirms the production (float32) path stays invariant to a small tolerance
 import torch
 
 from molnetpack.model import Encoder
-from molnetpack.molconv import MolConv2
+from conftest import graph_for
 from molnetpack.utils import make_idx_base
 
 # Real model dimensions (from config/molnet.yml).
@@ -94,12 +94,20 @@ def _encoder_se3_diff(center, R, t, dtype):
     idx_base = make_idx_base(1, POINT_NUM, x.device)
     x_se3 = apply_se3(x, n, R=R, t=t)
     enc = make_encoder(dtype)
+    g = lambda t: graph_for(t, mask, K)
+    # v1.4.0 removed the encoder's internal per-layer kNN, so a graph must be supplied.
+    # Building it from the SAME coordinates that are fed in reproduces exactly what the
+    # old fallback did, and keeps the test meaningful: a spatial graph is identical under
+    # rotation/reflection/translation (distances are preserved) and permutes with the
+    # atoms, so genuine invariance still has to hold.
     with torch.no_grad():
-        return _max_abs_diff(enc(x, idx_base, mask), enc(x_se3, idx_base, mask))
+        return _max_abs_diff(enc(x, idx_base, mask, neighbor_idx=g(x)[0], neighbor_mask=g(x)[1]),
+                             enc(x_se3, idx_base, mask,
+                                 neighbor_idx=g(x_se3)[0], neighbor_mask=g(x_se3)[1]))
 
 
 def test_encoder_is_se3_invariant():
-    """The full MolConv2 encoder output is unchanged by rotation + translation."""
+    """The full MolConv encoder output is unchanged by rotation + translation."""
     diff = _encoder_se3_diff((8.0, 8.0, 8.0), random_rotation(),
                              t=[3.0, -5.0, 2.0], dtype=torch.float64)
     print(f"[encoder float64] max|Δembedding| under SE(3) = {diff:.2e}")
@@ -134,29 +142,8 @@ def test_encoder_invariant_float32():
     assert diff < 5e-3, f"float32 encoder residual too large (max diff {diff:.2e})"
 
 
-def test_molconv2_layer_is_translation_invariant():
-    """First-layer (v2) is translation-invariant to fp-exact precision.
-
-    v2's relative-displacement Gram + real-atom centering + padding-masked kNN
-    make the output independent of any rigid shift (this is exactly what the
-    legacy absolute-Gram encoder v1/MolConv1 failed to guarantee).
-    """
-    x, mask, n = build_molecule(dtype=torch.float64)
-    idx_base = make_idx_base(1, POINT_NUM, x.device)
-    x_shift = apply_se3(x, n, t=[4.0, 4.0, 4.0])  # pure translation
-
-    torch.manual_seed(42)
-    layer2 = MolConv2(IN_DIM, 64, POINT_NUM, K, remove_xyz=True).eval().double()
-    with torch.no_grad():
-        d2 = _max_abs_diff(layer2(x, idx_base, mask)[:, :, :n],
-                           layer2(x_shift, idx_base, mask)[:, :, :n])
-    print(f"[layer float64] MolConv2 max|Δ| under translation = {d2:.2e}")
-    assert d2 < 1e-9, f"MolConv2 should be translation-invariant (got {d2:.2e})"
-
-
 if __name__ == "__main__":
     test_encoder_is_se3_invariant()
     test_encoder_invariant_at_origin()
     test_encoder_invariant_float32()
-    test_molconv2_layer_is_translation_invariant()
     print("\nAll SE(3)-invariance tests passed.")

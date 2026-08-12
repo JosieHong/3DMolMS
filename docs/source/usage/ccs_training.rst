@@ -1,9 +1,9 @@
 Collision cross section model training
 ======================================
 
-3DMolMS can predict MS/MS-related molecular properties such as collision cross section (CCS). This guide shows how to train a CCS model — from scratch or by transfer learning from an MS/MS model — and apply it to your own CCS dataset.
+3DMolMS predicts MS/MS-related molecular properties such as collision cross section (CCS). This guide shows how to train a CCS model, from scratch or by transfer learning from the ChEMBL-pretrained encoder.
 
-All models mentioned can be downloaded from `release v1.3.1 <https://github.com/JosieHong/3DMolMS/releases/tag/v1.3.1>`_.
+The released CCS model is at `release v1.4.0 <https://github.com/JosieHong/3DMolMS/releases>`_.
 
 Setup
 -----
@@ -13,13 +13,11 @@ Please set up the environment as shown in the :doc:`../sourcecode` page.
 **Step 1**: Data preparation
 ----------------------------
 
-Download the cross-collision section dataset, `AllCCS <http://allccs.zhulab.cn/>`_, manually or using ``download_allccs.py``:
+Download the `AllCCS <http://allccs.zhulab.cn/>`_ dataset, manually or with ``download_allccs.py``:
 
 .. code-block:: bash
 
-   python scripts/download_allccs.py --user <user_name> --passw <passwords> --output ./data/origin/allccs_download.csv
-
-The structure of data directory is:
+   python scripts/download_allccs.py --user <user_name> --passw <password> --output ./data/origin/allccs_download.csv
 
 .. code-block:: text
 
@@ -27,44 +25,31 @@ The structure of data directory is:
      |- origin
        |- allccs_download.csv
 
-**Step 2**: Preprocessing
--------------------------
+**Step 2**: Build the training pickles
+--------------------------------------
 
-Use the following commands to preprocess the datasets. The settings of datasets are in ``./molnetpack/config/preprocess_etkdgv3.yml``.
+``scripts/build_rt_ccs_dataset.py`` keeps only experimental CCS measurements (AllCCS also ships predicted values, which are not used as training targets), featurises the molecules with the shared encoding config, attaches the covalent bond graph, and splits on non-stereochemical InChIKey skeletons (80/10/10). The CCS adduct one-hot uses its own six-adduct set, defined in the ``encoding`` section of ``molnet_ccs_tl.yml``:
 
 .. code-block:: bash
 
-   python scripts/preprocess.py --task ccs \
-   --data_config_path ./molnetpack/config/preprocess_etkdgv3.yml
+   python scripts/build_rt_ccs_dataset.py --task ccs --workers 8
 
 **Step 3**: Training
 --------------------
 
-Use the following commands to train the model. The settings of model and training are in ``./molnetpack/config/molnet_ccs.yml``.
+Model and training settings are in ``molnetpack/config/molnet_ccs_tl.yml``; edit its ``train:`` section for your own runs (see the :doc:`../configuration` guide).
 
 *Using the command-line script:*
 
-Learning from scratch:
-
 .. code-block:: bash
 
-   python scripts/train.py --task ccs \
-   --train_data ./data/allccs_etkdgv3_train.pkl \
-   --test_data ./data/allccs_etkdgv3_test.pkl \
-   --checkpoint_path ./check_point/molnet_ccs_etkdgv3.pt
+   # From scratch:
+   python scripts/train_rt_ccs.py --task ccs --gpu 0
 
-If you'd like to train this model from the pre-trained model on MS/MS prediction, please download the pre-trained model from `release v1.3.1 <https://github.com/JosieHong/3DMolMS/releases/tag/v1.3.1>`_.
-
-Learning from pretrained model:
-
-.. code-block:: bash
-
-   python scripts/train.py --task ccs \
-   --train_data ./data/allccs_etkdgv3_train.pkl \
-   --test_data ./data/allccs_etkdgv3_test.pkl \
-   --checkpoint_path ./check_point/molnet_ccs_etkdgv3_tl.pt \
-   --transfer \
-   --resume_path ./check_point/molnet_qtof_etkdgv3.pt
+   # Transfer learning from the ChEMBL-pretrained encoder
+   # (how the released model was trained; see the pretraining guide):
+   python scripts/train_rt_ccs.py --task ccs --gpu 0 \
+   --pretrain ./check_point/molnet_pre_geobond.pt --freeze_encoder
 
 *Using the Python API:*
 
@@ -76,20 +61,22 @@ Learning from pretrained model:
    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
    molnet_engine = MolNet(device, seed=42)
 
-   # Learning from scratch:
+   # From scratch:
    molnet_engine.train(
        task='ccs',
-       train_data='./data/allccs_etkdgv3_train.pkl',
-       valid_data='./data/allccs_etkdgv3_test.pkl',
-       checkpoint_path='./check_point/molnet_ccs_etkdgv3.pt',
+       train_data='./data/ccs_bond_train.pkl',
+       valid_data='./data/ccs_bond_val.pkl',
+       checkpoint_path='./check_point/molnet_ccs.pt',
    )
 
-   # Learning from pretrained MS/MS model (transfer learning):
+   # Transfer learning: only the encoder weights are loaded from resume_path;
+   # the head starts fresh. The encoder is frozen by default — pass
+   # freeze_encoder=False for a full fine-tune.
    molnet_engine.train(
        task='ccs',
-       train_data='./data/allccs_etkdgv3_train.pkl',
-       valid_data='./data/allccs_etkdgv3_test.pkl',
-       checkpoint_path='./check_point/molnet_ccs_etkdgv3_tl.pt',
-       resume_path='./check_point/molnet_qtof_etkdgv3.pt',
+       train_data='./data/ccs_bond_train.pkl',
+       valid_data='./data/ccs_bond_val.pkl',
+       checkpoint_path='./check_point/molnet_ccs_tl.pt',
+       resume_path='./check_point/molnet_pre_geobond.pt',
        transfer=True,
    )

@@ -1,22 +1,37 @@
+# ==============================================================================
+# RT TASK CONFIG ("_tl" = transfer learning: the released RT model fine-tunes
+# a pretrained encoder). Which section to edit:
+#   model: architecture — what a checkpoint IS; do not edit to tune.
+#   train: optimisation hyperparameters — edit THIS to train on your own data.
+#   release: released-checkpoint location/URL.
+# RT has no experimental covariates: env is a single placeholder column, so
+# there is no `encoding:` block here. Molecule featurisation lives in
+# encoding_etkdgv3.yml (shared by all tasks).
+# ==============================================================================
+# Retention time. The architecture below is the SAME encoder as the released MS/MS model
+# (MolConv2 over the covalent bond graph, k=6), with a scalar head instead of a spectrum head.
+# It is fine-tuned from the geometric SSL pretrained encoder.
 model:
   in_dim: 21
-  add_num: 0
+  # RT has no experimental covariates: SMRT is a single chromatographic method, so retention is
+  # predicted from structure alone. env is one placeholder column, which the head still consumes.
+  add_num: 1
   max_atom_num: 300
   emb_dim: 2048
-  k: 5
+  k: 6
   dropout: 0.2
   encode_layers: [64, 64, 128, 256, 512, 1024]
-  decode_layers: [1024, 512, 256, 128, 32]
+  decode_layers: [2048, 2048, 2048, 2048, 2048]
 
 train:
   epochs: 200
-  batch_size: 64
+  batch_size: 32
   num_workers: 0
-  lr: 0.001
-  weight_decay: 0.01
-  augmentation: false
-  early_stop_patience: 60
+  lr: 0.0001
+  weight_decay: 0.05
+  grad_clip: 5.0
+  early_stop_patience: 15
 
-test:
-  local_path: './check_point/molnet_rt_etkdgv3_tl.pt'
-  github_release_url: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.3.1/molnet_rt_etkdgv3_tl.zip'
+release:
+  local_path: './check_point/molnet_rt_v1.4.0.pt'
+  github_release_url: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.4.0/molnet_rt_v1.4.0.zip'

@@ -1,7 +1,7 @@
 Tandem mass spectra prediction
 ==============================
 
-This guide explains how to use 3DMolMS for tandem mass spectra (MS/MS) prediction.
+This guide explains how to predict tandem mass spectra (MS/MS) from the command line.
 
 Setup
 -----
@@ -23,19 +23,19 @@ See :doc:`../supported_formats` for the MGF layout, the PKL structure, and the s
 **Step 2**: Running prediction
 ------------------------------
 
-Predict the MS/MS spectra using the following command:
+``scripts/predict.py`` is a thin wrapper over ``molnetpack.MolNet``; the bundled model and encoding configs are used automatically:
 
 .. code-block:: bash
 
   python scripts/predict.py --task msms \
-  --test_data ./examples/input_msms.csv \
-  --model_config_path ./molnetpack/config/molnet.yml \
-  --data_config_path ./molnetpack/config/preprocess_etkdgv3.yml \
-  --resume_path ./check_point/molnet_qtof_etkdgv3.pt \
-  --result_path ./examples/output_msms.mgf
+  --test_data ./examples/demo_input.csv \
+  --result_path ./examples/output_msms.mgf \
+  --instrument qtof
 
 Arguments
 ~~~~~~~~~
 
-* ``--resume_path``: model checkpoint. On the first run it downloads automatically from the `GitHub release <https://github.com/JosieHong/3DMolMS/releases>`_; you can also point it at your own model.
+* ``--instrument``: ``qtof`` (default) or ``orbitrap``.
+* ``--resume_path``: optional custom checkpoint. By default the released weights are downloaded on first use from the `GitHub release <https://github.com/JosieHong/3DMolMS/releases>`_ into the per-user cache directory. The checkpoint's embedded config is validated against the loaded config; a mismatch on any meaning-changing key (encoder settings, binning, collision-energy scale) is refused with an explanation instead of predicting from the wrong model.
 * ``--result_path``: where to save the prediction. Use ``.mgf`` (recommended for MS/MS) or ``.csv``.
+* ``--batch_size``: inference batch size (default 1).

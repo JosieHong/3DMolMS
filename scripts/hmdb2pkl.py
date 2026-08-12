@@ -10,7 +10,7 @@ from rdkit import RDLogger
 
 RDLogger.DisableLog("rdApp.*")
 
-from molnetpack import filter_mol, sdf2pkl_with_cond
+from molnetpack import config_path, filter_mol, sdf2pkl_with_cond
 
 
 if __name__ == "__main__":
@@ -27,8 +27,17 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_config_path",
         type=str,
-        default="./config/preprocess_hmdb.yml",
+        default=config_path("encoding_etkdgv3.yml"),
         help="path to configuration",
+    )
+    parser.add_argument(
+        "--conf_type",
+        type=str,
+        default="origin",
+        choices=["origin", "etkdgv3", "etkdg", "2d", "mmff"],
+        help="conformation source: 'origin' uses the coordinates shipped in the SDF "
+             "(historical default for HMDB); 'etkdgv3' regenerates conformers the same "
+             "way the released models were trained",
     )
     args = parser.parse_args()
 
@@ -38,6 +47,7 @@ if __name__ == "__main__":
     # load the configurations
     with open(args.data_config_path, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
+    config["encoding"]["conf_type"] = args.conf_type
 
     # load the data in sdf
     supp = Chem.SDMolSupplier(sdf_path)

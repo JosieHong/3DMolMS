@@ -62,8 +62,7 @@ A header row followed by one molecule per line. Column names are **case-sensitiv
 - ``Collision_Energy`` — e.g. ``40 V`` (the unit is optional). Needed for MS/MS.
 
 Omit the columns a task does not use — ``ID,SMILES`` alone is enough for RT or
-``save_features``. See ``examples/input_msms.csv``, ``examples/input_ccs.csv``, and
-``examples/input_savefeat.csv``.
+``save_features``. See ``examples/demo_input.csv``.
 
 MGF
 ~~~
@@ -82,14 +81,15 @@ One ``BEGIN IONS`` … ``END IONS`` block per molecule. The parameters below are
 
 Only ``TITLE``, ``SMILES``, ``PRECURSOR_TYPE`` and ``COLLISION_ENERGY`` are used;
 other fields (``PRECURSOR_MZ``, ``CHARGE``, peak lists, …) are ignored on input.
-See ``examples/input_msms.mgf``.
+See ``examples/demo_input.mgf``.
 
 SDF
 ~~~
 
 Used for **preparing training or reference sets in bulk** (e.g. METLIN for RT, HMDB
-for a reference library) via the preprocessing scripts (``scripts/preprocess.py``,
-``scripts/hmdb2pkl.py``, ``scripts/refmet2pkl.py``). These read each SDF molecule
+for a reference library) via the preprocessing scripts (``scripts/build_msms_dataset.py``,
+``scripts/build_rt_ccs_dataset.py``, ``scripts/hmdb2pkl.py``, ``scripts/refmet2pkl.py``).
+These read each SDF molecule
 block and its properties (SMILES and task labels such as retention time) and emit a
 PKL. SDF is **not** a direct ``MolNet.load_data`` inference input — convert it to a
 PKL first.
@@ -105,11 +105,13 @@ inputs are converted to this on load).
 
    [
      {
-       "title":  "demo_0",                  # str  — molecule id
-       "smiles": "C/C(=C\\CNc1...)CO",      # str
-       "mol":    np.ndarray,                 # [max_atom_num, 21] — 3D conformation
-       "env":    np.ndarray,                 # collision-energy + precursor-type context
-       "spec":   np.ndarray,                 # binned reference spectrum (training only)
+       "title":         "demo_0",            # str  — molecule id
+       "smiles":        "C/C(=C\\CNc1...)CO", # str
+       "mol":           np.ndarray,           # [max_atom_num, 21] — 3D conformation
+       "neighbor_idx":  np.ndarray,           # [max_atom_num, k] — covalent bond graph
+       "neighbor_mask": np.ndarray,           # [max_atom_num, k] — real-bond mask
+       "env":           np.ndarray,           # collision-energy + precursor-type context
+       "spec":          np.ndarray,           # binned reference spectrum (MS/MS training only)
      },
      ...
    ]
@@ -118,8 +120,12 @@ inputs are converted to this on load).
   3–20 are per-atom attributes and the atom-type one-hot.
 - ``env`` — the normalized collision energy plus the precursor-type one-hot
   (present for MS/MS and CCS).
+- ``neighbor_idx`` / ``neighbor_mask`` — the covalent bond graph. The released
+  encoder aggregates over bonded neighbours, so these are **required**; pickles
+  built by pre-v1.4.0 preprocessing lack them and are refused with an error.
 - ``spec`` — the binned reference spectrum; needed only for training / evaluation,
-  not for prediction.
+  not for prediction. RT / CCS training pickles carry an ``rt`` / ``ccs`` target
+  value instead.
 
 Output formats
 --------------
