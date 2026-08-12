@@ -54,8 +54,8 @@ def spectra_from_dataframe(df, version, instrument=None):
     """Convert a ``pred_msms`` result DataFrame into pyteomics-style spectrum dicts.
 
     When the DataFrame carries ``Pred RT`` / ``Pred CCS`` columns (see
-    :meth:`molnetpack.MolNet.pred_all`), they are emitted as the ``RTINSECONDS`` and
-    ``CCS`` ion parameters — the fields RT/CCS-aware library tools read.
+    :meth:`molnetpack.MolNet.pred_all`), they are emitted as the ``PRED_RT`` and
+    ``PRED_CCS`` ion parameters (RT in seconds, CCS in Å²).
     """
     spectra = []
     for idx, row in df.iterrows():
@@ -70,9 +70,9 @@ def spectra_from_dataframe(df, version, instrument=None):
             "instrument_type":  instrument,
         }
         if "Pred RT" in row and pd.notna(row["Pred RT"]):
-            params["rtinseconds"] = round(float(row["Pred RT"]), 2)
+            params["pred_rt"] = round(float(row["Pred RT"]), 2)
         if "Pred CCS" in row and pd.notna(row["Pred CCS"]):
-            params["ccs"] = round(float(row["Pred CCS"]), 1)
+            params["pred_ccs"] = round(float(row["Pred CCS"]), 1)
         spectra.append({
             "params": params,
             "m/z array":       np.array([float(v) for v in row["Pred M/Z"].split(",") if v]),

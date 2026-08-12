@@ -16,7 +16,7 @@ Prepare the test set as a CSV, MGF, or PKL file. A minimal CSV needs ``ID``, ``S
 .. code-block:: text
 
    ID,SMILES,Precursor_Type,Collision_Energy
-   demo_0,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,40 V
+   demo_0,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,80 V
 
 The ``Collision_Energy`` column accepts ``20 V`` or ``NCE=35%``; with an optional ``Collision_Energy_Unit`` column (``eV`` / ``NCE``) you can give plain numbers instead. See :doc:`../supported_formats` for the MGF layout, the PKL structure, the supported atom and precursor types, and what the predicted spectra contain (no peaks above the precursor m/z). Unsupported molecules are skipped automatically on load.
 

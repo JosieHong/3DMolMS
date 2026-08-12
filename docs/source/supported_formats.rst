@@ -53,7 +53,7 @@ A header row followed by one molecule per line. Column names are **case-sensitiv
 .. code-block:: text
 
    ID,SMILES,Precursor_Type,Collision_Energy
-   demo_0,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,40 V
+   demo_0,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,80 V
 
 - ``ID`` — molecule identifier, used as the result title. **Required.**
 - ``SMILES`` — the molecule structure. **Required.**
@@ -72,8 +72,7 @@ them; rows with an unrecognised unit are skipped.
 MGF
 ~~~
 
-One ``BEGIN IONS`` … ``END IONS`` block per molecule. The parameters below are read
-(keys are case-insensitive); peak lines are **optional** for prediction:
+One ``BEGIN IONS`` … ``END IONS`` block per molecule (keys are case-insensitive):
 
 .. code-block:: text
 
@@ -81,12 +80,15 @@ One ``BEGIN IONS`` … ``END IONS`` block per molecule. The parameters below are
    TITLE=demo_0
    SMILES=C/C(=C\CNc1nc[nH]c2ncnc1-2)CO
    PRECURSOR_TYPE=[M+H]+
-   COLLISION_ENERGY=40 V
+   COLLISION_ENERGY=80 V
    END IONS
 
-Only ``TITLE``, ``SMILES``, ``PRECURSOR_TYPE`` and ``COLLISION_ENERGY`` are used;
-other fields (``PRECURSOR_MZ``, ``CHARGE``, peak lists, …) are ignored on input.
-See ``examples/demo_input.mgf``.
+Each block must state ``TITLE``, ``SMILES``, ``PRECURSOR_TYPE`` and
+``COLLISION_ENERGY``; blocks missing one of them are skipped with a warning. All other
+fields are ignored on input — including peak lists and any stated ``PRECURSOR_MZ``
+(the precursor m/z is computed from the SMILES and adduct, exactly as for CSV input),
+so records exported from a spectral library load unchanged. See
+``examples/demo_input.mgf``.
 
 SDF
 ~~~
@@ -147,8 +149,8 @@ trained with the package's own preprocessing (``generate_ms``) have the precurso
 isotope peaks removed from their targets and do not predict them.
 
 ``MolNet.pred_all`` additionally embeds the RT and CCS predictions in each ion block as
-``RTINSECONDS`` and ``CCS`` — the fields RT/CCS-aware library tools read — and, for CSV
-output, as ``Pred RT`` / ``Pred CCS`` columns:
+``PRED_RT`` (seconds) and ``PRED_CCS`` (Å²) — named to make clear they are predictions,
+not measurements — and, for CSV output, as ``Pred RT`` / ``Pred CCS`` columns:
 
 .. code-block:: text
 
@@ -156,9 +158,11 @@ output, as ``Pred RT`` / ``Pred CCS`` columns:
    TITLE=demo_0
    SMILES=C/C(=C\CNc1nc[nH]c2ncnc1-2)CO
    PRECURSOR_TYPE=[M+H]+
-   COLLISION_ENERGY=39.98
-   41.00000 39.8
-   43.00000 172.5
+   COLLISION_ENERGY=79.95
+   PRED_RT=227.74
+   PRED_CCS=147.9
+   51.00000 122.1
+   53.00000 134.3
    ...
    END IONS
 

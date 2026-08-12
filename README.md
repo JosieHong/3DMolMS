@@ -66,6 +66,9 @@ plot_msms(pred_df, dir_to_img="./img/")
 molnet_engine.load_data("./examples/demo_input.csv")
 rt_df  = molnet_engine.pred_rt(path_to_results="./output_rt.csv")
 ccs_df = molnet_engine.pred_ccs(path_to_results="./output_ccs.csv")
+
+# Or predict MS/MS, RT, and CCS together in one output file
+all_df = molnet_engine.pred_all(path_to_results="./output_all.mgf")
 ```
 
 **Save molecular embeddings:**

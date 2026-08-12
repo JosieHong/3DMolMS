@@ -31,7 +31,7 @@ from rdkit import RDLogger
 from . import checkpoints, results, training
 from .model import MolNetMS, MolNetScalar, _build_encoder
 from .dataset import MolInferenceDataset
-from .data_utils import molecules_to_records, filter_spec, mgf2pkl, ms_vec2dict
+from .data_utils import molecules_to_records, ms_vec2dict
 from .data_utils.encoding import ATOM_FEATURE_DIMS
 from .steps import pred_step, pred_step_scalar, pred_feat, collect_targets
 from .results import plot_msms as plot_msms  # re-export: public API, historic location
@@ -365,12 +365,32 @@ class MolNet:
         return molecules_to_records(path, self.data_config["encoding"])
 
     def _load_mgf(self, path):
-        clean_spectra, _ = filter_spec(
-            mgf.read(path),
-            self.data_config["all"],
-            self.data_config["encoding"]["type2charge"],
-        )
-        return mgf2pkl(clean_spectra, self.data_config["encoding"])
+        """Read MGF blocks for their metadata only.
+
+        Prediction does not need a reference spectrum, so peak lists (and any stated
+        ``PRECURSOR_MZ``) are ignored; the precursor m/z is computed from the SMILES
+        and adduct, exactly as for CSV input.
+        """
+        required = ("title", "smiles", "precursor_type", "collision_energy")
+        rows, skipped = [], 0
+        with mgf.read(path) as reader:
+            for spectrum in reader:
+                params = spectrum["params"]
+                if any(key not in params for key in required):
+                    skipped += 1
+                    continue
+                rows.append({
+                    "ID": params["title"],
+                    "SMILES": params["smiles"],
+                    "Precursor_Type": params["precursor_type"],
+                    "Collision_Energy": params["collision_energy"],
+                })
+        if skipped:
+            logger.warning(
+                "Skipped %d MGF block(s) missing one of %s", skipped,
+                ", ".join(k.upper() for k in required),
+            )
+        return molecules_to_records(pd.DataFrame(rows), self.data_config["encoding"])
 
     @staticmethod
     def _load_pkl(path):
@@ -573,8 +593,7 @@ class MolNet:
 
         :param path_to_results: Optional path to save results. ``.csv`` gives one row per
             molecule with the spectrum plus ``Pred RT`` / ``Pred CCS`` columns; ``.mgf``
-            embeds them per ion as ``RTINSECONDS`` and ``CCS``, so the file works directly
-            as an RT/CCS-aware spectral library.
+            embeds them per ion as ``PRED_RT`` and ``PRED_CCS``.
         :type path_to_results: str, optional
         :param instrument: ``'qtof'`` or ``'orbitrap'`` (MS/MS model).
         :type instrument: str
