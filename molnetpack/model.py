@@ -3,7 +3,6 @@
 * :class:`Encoder` — the shared MolConv point-cloud encoder.
 * :class:`MolNetMS` — encoder + bidirectional spectrum head for MS/MS prediction.
 * :class:`MolNetScalar` — encoder + scalar head for regression tasks (RT, CCS, pretraining).
-  (Formerly ``MolNet_Oth``, which remains available as an alias.)
 """
 
 from decimal import Decimal
@@ -40,18 +39,14 @@ def _init_weights(module: nn.Module) -> None:
 def _build_encoder(config: dict, bond_dim: int = 0) -> "Encoder":
     """Construct the shared :class:`Encoder` from a model config block.
 
-    ``encoder_version`` is no longer a knob — the legacy v1 layer was removed in v1.4.0
-    and the parameter with it. A stale config still declaring v1 is refused here rather
-    than silently building the current encoder from a config that means something else.
+    A config declaring an unsupported ``encoder_version`` is refused rather than
+    silently built with the current encoder, which would mean something else.
     """
     version = config.get("encoder_version")
     if version is not None and int(version) != 2:
         raise ValueError(
-            f"encoder_version={version} is not supported. v1 (MolConv1, absolute-position "
-            f"Gram) was removed in v1.4.0: it is not E(3)-invariant (output shifted 11-18% "
-            f"under a pure translation), it cannot take a bond graph, and no released "
-            f"checkpoint uses it. Remove the key from the config, or use a pre-v1.4.0 "
-            f"release to reproduce a v1 checkpoint."
+            f"encoder_version={version} is not supported. Remove the key from the config; "
+            f"no released checkpoint needs it."
         )
     return Encoder(
         in_dim=int(config["in_dim"]),
@@ -77,9 +72,7 @@ def _append_env(x: torch.Tensor, env: Optional[torch.Tensor], add_num: int) -> t
     """Concatenate the encoded experimental condition onto the pooled embedding.
 
     ``env`` arrives as ``[B, add_num]`` from the datasets, but a single-column env is easy to
-    hand in as ``[B]``; accept both rather than silently producing a 3-D tensor (an
-    ``unsqueeze(env, 1)`` on an already-2-D env did exactly that historically, which is why the
-    RT model — ``add_num`` 1 — could not run through this path).
+    hand in as ``[B]``; both shapes are accepted.
     """
     if add_num <= 0:
         return x
@@ -256,13 +249,12 @@ class MSDecoder(nn.Module):
 class MolNetMS(nn.Module):
     """MolConv encoder + BIDIRECTIONAL spectrum head.
 
-    As of v1.4.0 the plain MLP-to-bins decoder is gone. The head is a shared trunk feeding three
-    projections -- forward, reverse (indexed downward from the precursor) and a sigmoid gate --
-    followed by a hard mask that zeroes every bin above the precursor. See `spectrum_heads` for
-    the equations and the measurement (+0.068 cosine over the plain decoder).
+    The head is a shared trunk feeding three projections -- forward, reverse (indexed downward
+    from the precursor) and a sigmoid gate -- followed by a hard mask that zeroes every bin
+    above the precursor. See `spectrum_heads` for the equations.
 
     Because the reverse head and the mask are both defined RELATIVE TO THE PRECURSOR, `forward`
-    now requires `prec_idx`: the precursor m/z of each molecule expressed as a bin index. Use
+    requires `prec_idx`: the precursor m/z of each molecule expressed as a bin index. Use
     `spectrum_heads.precursor_bin` to compute it; the datasets in `molnetpack.dataset` supply it.
     """
 
@@ -344,10 +336,7 @@ class MolNetMS(nn.Module):
 # controlling output dimension, and MolNetScalar contains a scaler.
 # -------------------------------------------------------------------------
 class MolNetScalar(nn.Module):
-    """MolConv encoder + scalar regression head (RT, CCS, pretraining).
-
-    Formerly named ``MolNet_Oth``; the old name remains available as an alias.
-    """
+    """MolConv encoder + scalar regression head (RT, CCS, pretraining)."""
 
     def __init__(self, config: dict):
         super().__init__()
@@ -420,11 +409,8 @@ class MolNetScalar(nn.Module):
                 env:    	experimental condition
                 idx_base:   per-molecule index offset for the neighbour gather
                 neighbor_idx / neighbor_mask:
-                            covalent BOND graph (REQUIRED). The encoder aggregates over bonded
-                            neighbours — the best-measuring neighbourhood definition (0.6202
-                            val cosine on MS/MS) — and since v1.4.0 MolConv refuses to run
-                            without a graph rather than silently selecting a different
-                            architecture.
+                            covalent BOND graph (REQUIRED); the encoder aggregates over
+                            bonded neighbours.
                 bond_feat:  optional per-edge bond features (bond_dim > 0)
         """
         if idx_base is None:
@@ -461,8 +447,7 @@ class MolNetScalar(nn.Module):
     ) -> torch.Tensor:
         """Get unscaled predictions for inference.
 
-        The bond graph is forwarded through; MolConv raises if it is missing — as of
-        v1.4.0 the encoder has no internal neighbour selection to fall back on.
+        The bond graph is forwarded through; MolConv raises if it is missing.
         """
         with torch.no_grad():
             x = self.forward(
@@ -478,7 +463,6 @@ class MolNetScalar(nn.Module):
             return x  # unscaled output
 
 
-# Deprecated aliases: "Oth" said nothing about what the model does; MolNet_MS is the
-# pre-v1.4.0 (non-PEP 8) spelling of MolNetMS.
+# Deprecated aliases.
 MolNet_Oth = MolNetScalar
 MolNet_MS = MolNetMS

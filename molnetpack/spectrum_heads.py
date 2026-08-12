@@ -13,12 +13,6 @@ The forward head indexes bins from 0 upward, which is the natural frame for FRAG
 reverse head indexes them downward from the precursor, which is the natural frame for NEUTRAL
 LOSSES -- a loss of 18 Da sits at the same offset for every molecule regardless of its mass. The
 mask zeroes everything above the precursor, since a fragment cannot substantially exceed its parent.
-
-MEASURED on this codebase (QTOF, 0.2 Da bins): plain MLP decoder 0.4131 -> bidirectional 0.4810,
-+0.068 cosine and the single largest architectural gain found. The mechanism is visible in the
-TRAIN cosine, which *falls* 0.9052 -> 0.6255: the mask deletes the entire above-precursor region
-the plain decoder was free to memorise, so the model can no longer fit noise there and generalises
-instead. This is NOT a capacity effect -- shrinking the plain decoder to [1024, 1024] HURT by 0.024.
 """
 import numpy as np
 import torch

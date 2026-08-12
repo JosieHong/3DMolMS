@@ -1,13 +1,9 @@
 """The MolConv encoder layer.
 
 :class:`MolConv` is E(3)-invariant and aggregates over a supplied neighbour graph — the
-covalent bond graph in every released model — with optional chirality awareness. Two
-predecessors were removed in v1.4.0: the absolute-Gram ``MolConv1`` (not
-translation-invariant; model configs still declaring ``encoder_version: 1`` are refused
-at construction) and the layer's internal neighbour selection (measured worse than a
-supplied graph, and silently architecture-changing when the graph was missing).
+covalent bond graph in every released model — with optional chirality awareness.
 
-``MolConv2`` remains importable as a deprecated alias of :class:`MolConv`.
+``MolConv2`` is a deprecated alias of :class:`MolConv`.
 """
 
 from typing import Optional, Tuple
@@ -82,8 +78,7 @@ class MolConv(nn.Module):
     ) -> torch.Tensor:
         # neighbor_idx [B, N, k] is REQUIRED: the atom's neighbours as a fixed, precomputed
         # graph — normally the covalent bond graph, so the relative-displacement Gram encodes
-        # true BOND ANGLES and dist true BOND LENGTHS. (The layer's internal neighbour
-        # selection was removed in v1.4.0; _generate_feat explains why.)
+        # true BOND ANGLES and dist true BOND LENGTHS.
         # bond_feat [B, N, k, bond_dim]: explicit per-edge bond descriptor concatenated into feat_n.
         #
         # CONTRACT — unused neighbour slots (atoms with degree < k) MUST be SELF-POINTING, i.e.
@@ -141,12 +136,8 @@ class MolConv(nn.Module):
 
         if neighbor_idx is None:
             raise ValueError(
-                "neighbor_idx is required. The layer's internal neighbour selection was "
-                "removed in v1.4.0: it recomputed neighbours from each layer's own input and "
-                "measured worse than a supplied graph (0.5893 vs 0.6202 validation cosine for "
-                "the bond graph), and because it shared every tensor shape with a supplied "
-                "graph, a missing graph silently changed the architecture rather than failing. "
-                "Pass the covalent graph from preprocessing (data_utils.bond_graph_array)."
+                "neighbor_idx is required: pass the covalent bond graph from "
+                "preprocessing (data_utils.bond_graph_array)."
             )
 
         # Pairwise squared distances — computed only to GATHER each supplied neighbour's
@@ -228,6 +219,5 @@ class MolConv(nn.Module):
         return f"{self.__class__.__name__} k = {self.k} ({self.in_dim} -> {self.out_dim})"
 
 
-# Deprecated alias: the pre-v1.4.0 name, from when the legacy MolConv1 still existed
-# alongside it and the layers were numbered.
+# Deprecated alias.
 MolConv2 = MolConv

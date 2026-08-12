@@ -1,7 +1,5 @@
 """Molecule / spectrum encoding helpers: conformer generation, spectrum binning,
 collision-energy parsing, adduct handling and the covalent bond graph.
-
-(Formerly ``molnetpack.data_utils.utils``, which remains importable as an alias.)
 """
 
 import logging
@@ -155,10 +153,7 @@ def parse_collision_energy(ce_str, precursor_mz, charge=1):
         ),
         r"^[\d]+[.]?[\d]*[ ]?nce$": lambda x: float(x.rstrip(" nce")),
         r"^[\d]+[.]?[\d]*[ ]?\(nce\)$": lambda x: float(x.rstrip(" (nce)")),
-        # Accept DECIMAL and lowercase NCE. The previous pattern `^NCE=[\d]+\%$` required an
-        # integer, so 'NCE=27.5%' fell through to unparseable and env[0] silently became 0.
-        # Note the old lambda used lstrip("NCE="), which strips CHARACTERS rather than a prefix --
-        # it would also have mangled the lowercase form. Extract with the regex instead.
+        # Accepts decimals and lowercase, e.g. 'NCE=27.5%' and 'nce=30%'.
         r"^[Nn][Cc][Ee]=[\d]+[.]?[\d]*[ ]?\%$": lambda x: float(
             re.search(r"([\d]+[.]?[\d]*)", x).group(1)
         ),
@@ -176,20 +171,13 @@ def parse_collision_energy(ce_str, precursor_mz, charge=1):
     for pattern, extract in matches_nce.items():
         if re.match(pattern, ce_str):
             # NCE is kept on the PERCENT scale (35.0 for 35%), matching the scale the eV branch
-            # below produces via ce*500*charge_factor/precursor_mz. A previous `* 0.01` here made
-            # NCE-parsed strings come back as fractions while eV-derived ones came back as
-            # percentages -- a silent 100x inconsistency in the same return value, which also made
-            # the inverse (ce) 100x too small for NCE-only inputs ('HCD (NCE 40%)' at 400 m/z gave
-            # 0.32 eV instead of 32 eV). Measured contamination: 1.23% of qtof_bond_train sat on
-            # the fraction scale, i.e. those spectra told the model CE ~ 0.
+            # below produces via ce*500*charge_factor/precursor_mz.
             nce = extract(ce_str)
             break
 
     # Strings that state BOTH, e.g. NIST's "NCE=35% 25eV": use the two STATED values directly
-    # instead of deriving one from the other. Previously only the eV field was read and NCE was
-    # re-derived via ce*500*cf/precursor_mz, which disagreed with the stated NCE by 7.7 percentage
-    # points on average (median 47.4 derived vs 50.0 stated over 40,000 NIST records). The
-    # instrument setting is ground truth; the formula is an approximation of it.
+    # instead of deriving one from the other. The instrument setting is ground truth; the
+    # formula is only an approximation of it.
     m_both = re.match(
         r"^\s*[Nn][Cc][Ee]=([\d]+[.]?[\d]*)%\s+([\d]+[.]?[\d]*)\s*[eE]?[vV]\s*$", ce_str
     )

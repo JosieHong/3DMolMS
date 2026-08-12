@@ -2,7 +2,7 @@
 
 Training datasets: :class:`MolMSDataset` (MS/MS), :class:`MolScalarDataset` (scalar targets,
 with :class:`MolRTDataset` / :class:`MolCCSDataset` as task-specific subclasses),
-:class:`MolInferenceDataset` (formerly ``Mol_Dataset``) serves inference for all tasks.
+:class:`MolInferenceDataset` serves inference for all tasks.
 """
 
 import logging
@@ -43,7 +43,7 @@ def _require_bond_graph(data, path):
     """
     if data and "neighbor_idx" not in data[0]:
         raise KeyError(
-            f"{path} has no 'neighbor_idx' -- it was built by a pre-v1.4.0 preprocessing run. "
+            f"{path} has no 'neighbor_idx' -- it was built by an older preprocessing run. "
             f"The models aggregate over the covalent bond graph and cannot run without it. "
             f"Re-run the dataset build: python scripts/build_msms_dataset.py ..."
         )
@@ -77,14 +77,7 @@ def _add_precursor_bins(data, resolution, max_mz, data_config_path):
 
 
 class MolMSDataset(Dataset):
-    """MS/MS spectra.
-
-    Note on augmentation: earlier versions doubled the dataset by mirroring the x coordinate. The
-    encoder is E(3)-invariant in every shipped setting and reflection is an element of E(3), so
-    the mirrored copy produced a bit-identical embedding -- measured max|f(x) - f(flip)| = 0.0.
-    It doubled epoch time to train on exact duplicates, and has been removed. Mirroring is only
-    informative with chirality=True (the SE(3) mode), which no released model uses.
-    """
+    """MS/MS spectra."""
 
     def __init__(self, x, precursor_type=False, mode="path",
                  data_config_path=_DEFAULT_DATA_CONFIG, resolution=0.2, max_mz=1500):
@@ -203,8 +196,7 @@ class MolCCSDataset(MolScalarDataset):
         super().__init__(path, target_key="ccs")
 
 
-# Deprecated aliases: inference input is shared by all tasks, not MS/MS-specific;
-# the underscored names are the pre-v1.4.0 (non-PEP 8) spellings.
+# Deprecated aliases.
 Mol_Dataset = MolInferenceDataset
 MolMS_Dataset = MolMSDataset
 MolRT_Dataset = MolRTDataset

@@ -5,10 +5,7 @@ from pathlib import Path
 
 _CONFIG_DIR = Path(__file__).parent / "config"
 
-# v1.4.0 renames: the "preprocess_*" files are the shared molecule/spectrum ENCODING used by
-# every task, and were renamed to say so. Old names keep resolving, with a warning.
-# (preprocess_hmdb.yml was not renamed but REMOVED: it duplicated the shared encoding
-# byte-for-byte except conf_type, which is now a --conf_type flag on hmdb2pkl.py.)
+# Old config names keep resolving, with a deprecation warning.
 _RENAMED_CONFIGS = {
     "preprocess_etkdgv3.yml": "encoding_etkdgv3.yml",
 }

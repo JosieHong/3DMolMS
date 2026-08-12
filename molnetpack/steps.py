@@ -1,7 +1,4 @@
-"""Training, inference and evaluation step functions shared by :class:`MolNet` and the scripts.
-
-(Formerly ``molnetpack.utils``, which remains importable as an alias.)
-"""
+"""Training, inference and evaluation step functions shared by :class:`MolNet` and the scripts."""
 
 import logging
 from decimal import Decimal
@@ -41,9 +38,7 @@ def make_idx_base(batch_size, num_points, device):
 def _to_device(x, mask, nidx, nmask, device):
     """Move the point cloud and its bond graph to the device.
 
-    The bond graph must travel with the molecule everywhere: MolConv refuses to run
-    without it — as of v1.4.0 the encoder has no internal neighbour selection to fall
-    back on.
+    The bond graph must travel with the molecule everywhere: MolConv requires it.
     """
     return (
         x.to(device=device, dtype=torch.float).permute(0, 2, 1),
@@ -56,7 +51,8 @@ def _to_device(x, mask, nidx, nmask, device):
 def pred_step(model, device, loader, batch_size, num_points, env):
     """`env` is the experimental condition for the WHOLE dataset, [N, add_num], in this task's
     layout. It is supplied by the caller rather than read from the loader, because the inference
-    dataset is shared by three models that do not agree on what env means -- see Mol_Dataset."""
+    dataset is shared by three models that do not agree on what env means -- see
+    MolInferenceDataset."""
     model.eval()
     id_list, pred_list = [], []
     row = 0
@@ -74,8 +70,7 @@ def pred_step(model, device, loader, batch_size, num_points, env):
                 pred = model(x, mask, env_b, idx_base, prec_idx=prec_idx,
                              neighbor_idx=nidx, neighbor_mask=nmask)
                 # Normalize each spectrum by its own max so batched inference
-                # (batch_size > 1) matches single-molecule results. The previous
-                # global torch.max(pred) forced batch_size == 1.
+                # (batch_size > 1) matches single-molecule results.
                 pred = pred / pred.amax(dim=1, keepdim=True).clamp(min=1e-12)
                 pred = torch.pow(pred, 2)
                 # Suppress sub-threshold noise peaks.
@@ -89,7 +84,8 @@ def pred_step(model, device, loader, batch_size, num_points, env):
 
 
 def pred_step_scalar(model, device, loader, batch_size, num_points, env):
-    """`env` is [N, add_num] in this task's own layout -- see `pred_step` and `Mol_Dataset`."""
+    """`env` is [N, add_num] in this task's own layout -- see `pred_step` and
+    `MolInferenceDataset`."""
     if batch_size != 1:
         raise ValueError("batch_size should be 1 for prediction")
     model.eval()
@@ -116,8 +112,7 @@ def pred_step_scalar(model, device, loader, batch_size, num_points, env):
     return id_list, torch.cat(pred_list, dim=0)
 
 
-# Deprecated name: this function PREDICTS scalar targets (its bar even says "Predict");
-# `eval_step` is the actual validation loop.
+# Deprecated alias.
 eval_step_oth = deprecated_alias(pred_step_scalar, "eval_step_oth")
 
 

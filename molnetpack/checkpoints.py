@@ -110,19 +110,17 @@ def ensure_checkpoint(checkpoint_path, url, task_name):
 def validate_checkpoint_config(ckpt, current_model_config, checkpoint_path):
     """Refuse a checkpoint whose training config contradicts the config we just built from.
 
-    Checkpoints WITHOUT any embedded config (pre-v1.4.0) only warn: they are a known legacy
-    class that cannot be verified at all. Checkpoints WITH a config are held to the full
-    standard: every critical key must be present on both sides and equal. A key that only one
-    side records is an error too — skipping it would silently waive exactly the check the key
-    was added for (that is how a stale 'ce_scale'-less snapshot could pair with a percent-scale
-    config and mis-scale every collision energy 100x without a sound).
+    Checkpoints WITHOUT any embedded config only warn: they cannot be verified at all.
+    Checkpoints WITH a config are held to the full standard: every critical key must be
+    present on both sides and equal. A key that only one side records is an error too —
+    skipping it would silently waive exactly the check the key was added for.
     """
     saved = _model_block(ckpt.get("config"))
     if saved is None:
         logger.warning(
-            "%s carries no config. It predates v1.4.0, so its encoder mode and adduct "
-            "layout cannot be verified against yours. If it was trained with different "
-            "settings the predictions will be wrong WITHOUT any error.", checkpoint_path
+            "%s carries no config, so its encoder mode and adduct layout cannot be "
+            "verified against yours. If it was trained with different settings the "
+            "predictions will be wrong WITHOUT any error.", checkpoint_path
         )
         return
 

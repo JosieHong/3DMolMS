@@ -229,13 +229,10 @@ class MolNet:
             # The pickle is written in the MS/MS layout already, so use it verbatim.
             for i, record in enumerate(self.pkl_dict):
                 env[i] = torch.tensor(np.asarray(record["env"], dtype=np.float32))
-            # The package converters write env[0] as NCE on the PERCENT scale (35.0 for 35%),
-            # but the v1.4.0 release models were trained with NCE as a FRACTION (0.35) -- see
-            # scripts/build_msms_dataset.py: ce_to_nce. `ce_scale` in the model config names
-            # the convention the checkpoint expects; feeding the wrong one is a silent 100x
-            # error in collision energy (measured on caffeine: the spectrum degrades into
-            # small high-energy fragments). Pre-v1.4.0 checkpoints expect 'percent' -- load
-            # them with a config that says so.
+            # The package converters write env[0] as NCE on the PERCENT scale (35.0 for 35%).
+            # `ce_scale` in the model config names the convention the checkpoint expects
+            # ('percent' or 'fraction'); feeding the wrong one is a silent 100x error in
+            # collision energy. The released models expect 'fraction'.
             if config["model"].get("ce_scale", "percent") == "fraction":
                 env[:, 0] /= 100.0
             return env
@@ -283,7 +280,7 @@ class MolNet:
     @staticmethod
     def _release_section(config):
         """The ``release:`` config section (checkpoint locations/URLs). Accepts the
-        pre-v1.4.0 spelling ``test:`` from user-supplied configs."""
+        deprecated spelling ``test:`` from user-supplied configs."""
         return config.get("release") or config.get("test") or {}
 
     def _msms_checkpoint_rel_path(self, instrument):

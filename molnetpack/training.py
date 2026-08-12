@@ -68,9 +68,6 @@ def build_loaders(task, train_path, valid_path, config, data_config, data_config
         }
         encoder["All"] = False
         encoded = encoder[precursor_type]
-        # `data_augmentation` (mirroring the x coordinate) was removed in v1.4.0: the encoder
-        # is E(3)-invariant, so the mirrored copy is bit-identical and it only ever duplicated
-        # the dataset. See MolMSDataset.
         ms_kwargs = dict(
             precursor_type=encoded,
             data_config_path=data_config_path,

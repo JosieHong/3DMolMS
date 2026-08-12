@@ -158,8 +158,6 @@ def molecules_to_records(csv_path, encoder):
     The ``Collision_Energy`` column accepts free-text values in either unit (``"20 V"`` or
     ``"NCE=35%"``). Alternatively, give plain numbers and add an optional
     ``Collision_Energy_Unit`` column (``eV`` or ``NCE``) that says how to read them, per row.
-
-    (Formerly ``csv2pkl_wfilter``, which remains available as an alias.)
     """
     _require_generated_conformation(encoder)
     df = csv_path if isinstance(csv_path, pd.DataFrame) else pd.read_csv(csv_path)
@@ -244,7 +242,7 @@ def molecules_to_records(csv_path, encoder):
     return data
 
 
-# Deprecated name: it accepts a DataFrame as well as a CSV and returns records, not a pkl.
+# Deprecated alias.
 csv2pkl_wfilter = deprecated_alias(molecules_to_records, "csv2pkl_wfilter")
 
 
