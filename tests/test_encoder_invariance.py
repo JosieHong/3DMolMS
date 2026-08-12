@@ -6,17 +6,17 @@ transforms. Invariance is an architectural property, so random weights suffice.
 
 Claimed / intended properties
 -----------------------------
-  v1 (MolConv1) : absolute-position Gram -> rotation + reflection + permutation
-                  invariant, but NOT translation invariant (legacy).
-  v2 (MolConv2) : relative-displacement Gram + centering + padding-mask ->
+  (v1/MolConv1 was removed in v1.4.0: absolute-position Gram, so it was NOT
+   translation invariant -- output shifted 11-18% under a pure translation.)
+  v2 (MolConv) : relative-displacement Gram + centering + padding-mask ->
                   full E(3) (rotation + reflection + translation) + permutation.
   v2 + chirality (SE(3)) : rotation + translation invariant, but reflection-
                   SENSITIVE by design (chiral tasks, e.g. 3DMolCSP).
 """
-import numpy as np
 import torch
 
-from molnetpack.molconv import MolConv1, MolConv2
+from molnetpack.molconv import MolConv
+from conftest import graph_for
 
 B, IN, P, K, OUT, NR = 2, 21, 300, 5, 64, 20
 DTYPE = torch.float64
@@ -59,8 +59,14 @@ def _rel(base, out):
     return d / (base[:, :, :NR].abs().mean().item() + 1e-12)
 
 
-def _run(layer, x, mask, idx_base, needs_mask):
-    return layer(x, idx_base, mask) if needs_mask else layer(x, idx_base)
+def _run(layer, x, mask, idx_base, needs_mask=True):
+    # v1.4.0 removed the encoder's internal per-layer kNN, so a graph must be supplied.
+    # Building it from the SAME coordinates that are fed in reproduces exactly what the
+    # old fallback did, and keeps the test meaningful: a spatial graph is identical under
+    # rotation/reflection/translation (distances are preserved) and permutes with the
+    # atoms, so genuine invariance still has to hold.
+    nidx, nmask = graph_for(x, mask, K)
+    return layer(x, idx_base, mask, nidx, nmask)
 
 
 def _deltas(layer, needs_mask):
@@ -84,7 +90,7 @@ def _deltas(layer, needs_mask):
 
 def _mc2(**flags):
     torch.manual_seed(42)
-    return MolConv2(IN, OUT, P, K, remove_xyz=True, **flags)
+    return MolConv(IN, OUT, P, K, remove_xyz=True, **flags)
 
 
 def test_v2_is_e3_and_permutation_invariant():
@@ -101,15 +107,6 @@ def test_v2_chirality_is_se3_reflection_sensitive():
     assert d["translation"] < INVAR,  f"chirality broke translation: {d['translation']:.2e}"
     assert d["permutation"] < INVAR,  f"chirality broke permutation: {d['permutation']:.2e}"
     assert d["reflection"] > SENS,    f"chirality (SE3) should be reflection-sensitive: {d['reflection']:.2e}"
-
-
-def test_v1_is_o3_and_permutation_but_not_translation():
-    """Legacy v1 (absolute Gram): rotation/reflection/permutation invariant, NOT translation."""
-    d = _deltas(MolConv1(IN, OUT, K, remove_xyz=True), needs_mask=False)
-    assert d["rotation"] < INVAR,    f"v1 rotation: {d['rotation']:.2e}"
-    assert d["reflection"] < INVAR,  f"v1 reflection: {d['reflection']:.2e}"
-    assert d["permutation"] < INVAR, f"v1 permutation: {d['permutation']:.2e}"
-    assert d["translation"] > INVAR, f"v1 should NOT be exactly translation-invariant: {d['translation']:.2e}"
 
 
 if __name__ == "__main__":

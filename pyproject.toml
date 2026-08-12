@@ -1,10 +1,12 @@
 [build-system]
-requires = ["flit_core>=3.4"]
-build-backend = "flit_core.buildapi"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "molnetpack"
-version = "1.3.2"
+# Version is read from molnetpack/_version.py (single source of truth) so the
+# PyPI metadata can never drift from the package's __version__ again.
+dynamic = ["version"]
 authors = [
     { name="Yuhui Hong" },
     { name="Sujun Li" },
@@ -19,48 +21,68 @@ maintainers = [
 description = "3DMolMS: prediction of tandem mass spectra from 3D molecular conformations"
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent"
 ]
+# Only what molnetpack itself imports. matplotlib/pillow stay because the
+# plotting helpers are part of the public API (plot_msms, evaluate histograms).
 dependencies = [
-    "absl-py",
-    "beautifulsoup4",
-    "filelock",
-    "gdown",
-    "grpcio",
-    "importlib-metadata",
-    "lxml",
-    "markdown",
-    "markupsafe",
-    "molmass",
     "numpy",
     "pandas",
-    "protobuf",
-    "pysocks",
-    "pyteomics",
-    "soupsieve",
-    "tensorboard",
     "PyYAML",
-    "rdkit", 
+    "pyteomics",
+    "molmass",
+    "rdkit",
+    "torch",
     "matplotlib",
     "pillow",
     "platformdirs",
     "requests",
-    "scikit-learn",
-    "tqdm"
+    "tqdm",
 ]
 
 [project.optional-dependencies]
+# scikit-learn is only needed for MolNet.train(..., use_scaler=True); the released
+# RT/CCS checkpoints carry plain mu/sd statistics and predict without it.
+train = [
+    "scikit-learn",
+]
 docs = [
-    "sphinx>=5,<7",
-    "sphinx_rtd_theme>=1.0.0",
-    "myst-parser>=0.18.0",
-    "sphinxcontrib-napoleon>=0.7",
+    "sphinx>=7.3",
+    "sphinx_rtd_theme>=2.0",
+    "myst-parser>=3.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/JosieHong/3DMolMS/"
 Issues = "https://github.com/JosieHong/3DMolMS/issues"
 Changelog = "https://github.com/JosieHong/3DMolMS/blob/main/CHANGE_LOG.md"
+
+[tool.hatch.version]
+path = "molnetpack/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["molnetpack"]
+# Downloaded model checkpoints may sit in the legacy in-package location on dev
+# machines; they are multi-GB and must never ship in a wheel or sdist.
+exclude = ["molnetpack/check_point"]
+
+[tool.hatch.build.targets.sdist]
+include = ["molnetpack", "tests", "README.md", "LICENSE", "CHANGE_LOG.md"]
+exclude = ["molnetpack/check_point"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# pycodestyle errors/warnings + pyflakes; matches `ruff check molnetpack/`
+select = ["E", "W", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# The package is held to the full standard. Scripts keep their deliberately compact
+# pipeline style (semicolons, late imports, long data literals); tests keep long lines.
+"scripts/*" = ["E501", "E731", "E702", "E402", "E701"]
+"tests/*" = ["E501", "E731", "E702", "E701", "E402"]

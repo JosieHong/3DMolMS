@@ -1,24 +1,51 @@
+# ==============================================================================
+# CCS TASK CONFIG ("_tl" = transfer learning: the released CCS model fine-tunes
+# a pretrained encoder). Which section to edit:
+#   model:    architecture — what a checkpoint IS; do not edit to tune.
+#   train:    optimisation hyperparameters — edit THIS to train on your own data.
+#   release:  released-checkpoint location/URL.
+#   encoding: the CCS-SPECIFIC adduct one-hot layout. CCS uses its own 6-adduct
+#             set (AllCCS is dominated by adducts the MS/MS data barely has),
+#             so this deliberately differs from the shared config's 5-way MS/MS
+#             layout. model.add_num must equal its width (cross-checked).
+# Molecule featurisation lives in encoding_etkdgv3.yml (shared by all tasks).
+# ==============================================================================
+# Collision cross-section. Same encoder as the released MS/MS model (MolConv2 over the covalent
+# bond graph, k=6) with a scalar head, fine-tuned from the geometric SSL pretrained encoder.
 model:
   in_dim: 21
-  add_num: 5
+  # env = a 6-way adduct one-hot. NOTE this is NOT the MS/MS adduct set: AllCCS measurements are
+  # dominated by adducts the MS/MS data barely contains, and there is no collision-energy column.
+  # The layout is fixed by `encoding.precursor_type` below and is also stored in the checkpoint,
+  # so the model and the data cannot drift apart.
+  add_num: 6
   max_atom_num: 300
   emb_dim: 2048
-  k: 5
-  dropout: 0.1
+  k: 6
+  dropout: 0.2
   encode_layers: [64, 64, 128, 256, 512, 1024]
-  decode_layers: [1024, 512, 256, 128, 32]
+  decode_layers: [2048, 2048, 2048, 2048, 2048]
+
+encoding:
+  # AllCCS writes the water loss BEFORE the proton ("[M-H2O+H]+"). `normalize_adduct` canonicalises
+  # both spellings onto the form below, so either one in an input file resolves correctly.
+  precursor_type:
+    '[M+H]+':     [1, 0, 0, 0, 0, 0]
+    '[M-H]-':     [0, 1, 0, 0, 0, 0]
+    '[M+Na]+':    [0, 0, 1, 0, 0, 0]
+    '[M+NH4]+':   [0, 0, 0, 1, 0, 0]
+    '[M+HCOO]-':  [0, 0, 0, 0, 1, 0]
+    '[M+H-H2O]+': [0, 0, 0, 0, 0, 1]
 
 train:
   epochs: 200
   batch_size: 32
   num_workers: 0
   lr: 0.0001
-  weight_decay: 0.01
-  augmentation: false
-  early_stop_patience: 60
+  weight_decay: 0.05
+  grad_clip: 5.0
+  early_stop_patience: 15
 
-test:
-  local_path: './check_point/molnet_ccs_etkdgv3_tl.pt'
-  github_release_url: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.3.1/molnet_ccs_etkdgv3_tl.zip'
-
-  
+release:
+  local_path: './check_point/molnet_ccs_v1.4.0.pt'
+  github_release_url: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.4.0/molnet_ccs_v1.4.0.zip'

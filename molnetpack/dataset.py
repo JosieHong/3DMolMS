@@ -1,341 +1,203 @@
-"""
-Date: 2023-10-02 20:24:27
-LastEditors: yuhhong
-LastEditTime: 2023-10-20 17:01:37
+"""PyTorch ``Dataset`` classes for the 3DMolMS tasks.
+
+Training datasets: :class:`MolMSDataset` (MS/MS), :class:`MolScalarDataset` (scalar targets,
+with :class:`MolRTDataset` / :class:`MolCCSDataset` as task-specific subclasses),
+:class:`MolInferenceDataset` serves inference for all tasks.
 """
 
+import logging
+import os
 import pickle
-import numpy as np
 
+import numpy as np
 from torch.utils.data import Dataset
 
+from .spectrum_heads import precursor_bin
 
-class MolMS_Dataset(Dataset):
-    def __init__(self, x, data_augmentation=True, precursor_type=False, mode="path"):
-        if mode == "path":
-            path = x
-            with open(path, "rb") as file:
-                data = pickle.load(file)
-        elif mode == "data":
-            data = x
-            path = "unknown"
-        else:
-            raise ValueError("Unsupported mode:", mode)
+logger = logging.getLogger(__name__)
 
-        if precursor_type:
-            data = self.filter_precursor_type(data, precursor_type)
+_DEFAULT_DATA_CONFIG = os.path.join(
+    os.path.dirname(__file__), "config", "encoding_etkdgv3.yml"
+)
 
-        # generate mask
-        for idx in range(len(data)):
-            mask = ~np.all(data[idx]["mol"] == 0, axis=1)
-            data[idx]["mask"] = mask.astype(bool)
 
-        # data augmentation by flipping the x,y,z-coordinates
-        if data_augmentation:
-            flipping_data = []
-            for d in data:
-                flipping_mol_arr = np.copy(d["mol"])
-                flipping_mol_arr[:, 0] *= -1
-                flipping_data.append(
-                    {
-                        "title": d["title"] + "_f",
-                        "mol": flipping_mol_arr,
-                        "mask": d["mask"],        # mask is identical for flipped mol
-                        "spec": d["spec"],
-                        "env": d["env"],
-                    }
-                )
+def _load_records(x, mode):
+    """Resolve the (path | in-memory data) input convention shared by several datasets.
 
-            self.data = data + flipping_data
-            print(
-                "Load {} data (with data augmentation by flipping coordinates)".format(
-                    len(self.data)
-                )
+    Returns ``(records, source_label)`` where ``source_label`` names the origin for messages.
+    """
+    if mode == "path":
+        with open(x, "rb") as f:
+            return pickle.load(f), str(x)
+    if mode == "data":
+        return x, "in-memory data"
+    raise ValueError(f"Unsupported mode: {mode!r} (expected 'path' or 'data')")
+
+
+def _require_bond_graph(data, path):
+    """The encoder aggregates over the covalent bond graph. Fail loudly if it is absent.
+
+    MolConv itself refuses to run without a neighbour graph; this check exists to fail
+    EARLIER, at load time, with a message that names the fix instead of surfacing
+    mid-epoch from inside a forward pass.
+    """
+    if data and "neighbor_idx" not in data[0]:
+        raise KeyError(
+            f"{path} has no 'neighbor_idx' -- it was built by an older preprocessing run. "
+            f"The models aggregate over the covalent bond graph and cannot run without it. "
+            f"Re-run the dataset build: python scripts/build_msms_dataset.py ..."
+        )
+
+
+def _add_masks(data):
+    """Mark real atoms: a row of all zeros in the padded ``mol`` array is padding."""
+    for d in data:
+        d["mask"] = (~np.all(d["mol"] == 0, axis=1)).astype(bool)
+    return data
+
+
+def _filter_precursor_type(data, encoded_precursor_type):
+    """Keep records whose adduct one-hot (``env[1:]``) matches the encoded filter string."""
+    return [
+        d for d in data
+        if ",".join(str(int(i)) for i in d["env"][1:]) == encoded_precursor_type
+    ]
+
+
+def _add_precursor_bins(data, resolution, max_mz, data_config_path):
+    # Precursor bin index: the reverse head indexes bins downward from it and the output mask
+    # zeroes everything above it, so it is a required model input, not a convenience.
+    n_bins = int(max_mz / resolution)
+    for d in data:
+        if "prec_idx" not in d:
+            d["prec_idx"] = precursor_bin(
+                d["smiles"], d["env"], resolution, n_bins, data_config_path
             )
-        else:
-            self.data = data
-            print("Load {} data".format(len(self.data)))
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return (
-            self.data[idx]["title"],
-            self.data[idx]["mol"],
-            self.data[idx]["mask"],
-            self.data[idx]["spec"],
-            self.data[idx]["env"],
-        )
-
-    def filter_precursor_type(self, data, precursor_type):
-        filtered_data = []
-        for d in data:
-            d_precursor_type = ",".join([str(int(i)) for i in d["env"][1:]])
-            if d_precursor_type == precursor_type:
-                filtered_data.append(d)
-        return filtered_data
+    return data
 
 
-class Mol_Dataset(Dataset):
-    def __init__(self, data, precursor_type=False):
+class MolMSDataset(Dataset):
+    """MS/MS spectra."""
+
+    def __init__(self, x, precursor_type=False, mode="path",
+                 data_config_path=_DEFAULT_DATA_CONFIG, resolution=0.2, max_mz=1500):
+        data, source = _load_records(x, mode)
+
         if precursor_type:
-            data = self.filter_precursor_type(data, precursor_type)
+            data = _filter_precursor_type(data, precursor_type)
 
-        # generate mask
-        for idx in range(len(data)):
-            mask = ~np.all(data[idx]["mol"] == 0, axis=1)
-            data[idx]["mask"] = mask.astype(bool)
-
-        self.data = data
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return (
-            self.data[idx]["title"],
-            self.data[idx]["mol"],
-            self.data[idx]["mask"],
-            self.data[idx]["env"],
+        _require_bond_graph(data, source)
+        self.data = _add_precursor_bins(
+            _add_masks(data), resolution, max_mz, data_config_path
         )
-
-    def filter_precursor_type(self, data, precursor_type):
-        filtered_data = []
-        for d in data:
-            d_precursor_type = ",".join([str(int(i)) for i in d["env"][1:]])
-            if d_precursor_type == precursor_type:
-                filtered_data.append(d)
-        return filtered_data
-
-
-class MolRT_Dataset(Dataset):
-    def __init__(self, path):
-        with open(path, "rb") as file:
-            self.data = pickle.load(file)
-        print("Load {} data from {}".format(len(self.data), path))
-
-        # generate mask
-        for idx in range(len(self.data)):
-            mask = ~np.all(self.data[idx]["mol"] == 0, axis=1)
-            self.data[idx]["mask"] = mask.astype(bool)
+        logger.info("Loaded %d records from %s", len(self.data), source)
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
+        d = self.data[idx]
         return (
-            self.data[idx]["title"],
-            self.data[idx]["mol"],
-            self.data[idx]["mask"],
-            self.data[idx]["rt"],
+            d["title"],
+            d["mol"],
+            d["mask"],
+            d["neighbor_idx"],
+            d["neighbor_mask"],
+            np.int64(d["prec_idx"]),
+            d["spec"],
+            d["env"],
         )
 
 
-class MolCCS_Dataset(Dataset):
-    def __init__(self, path):
-        with open(path, "rb") as file:
-            self.data = pickle.load(file)
-        print("Load {} data from {}".format(len(self.data), path))
+class MolInferenceDataset(Dataset):
+    """Molecules for INFERENCE (no reference spectrum), shared by all three tasks.
 
-        # generate mask
-        for idx in range(len(self.data)):
-            mask = ~np.all(self.data[idx]["mol"] == 0, axis=1)
-            self.data[idx]["mask"] = mask.astype(bool)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return (
-            self.data[idx]["title"],
-            self.data[idx]["mol"],
-            self.data[idx]["mask"],
-            self.data[idx]["ccs"],
-            self.data[idx]["env"],
-        )
-
-
-class MolPRE_Dataset(Dataset):
-    def __init__(self, path):
-        with open(path, "rb") as file:
-            data = pickle.load(file)
-
-        self.data = []
-        for d in data:
-            if "mol" in d.keys():
-                self.data.append(d)
-        print("Load {} data from {}".format(len(self.data), path))
-
-        # generate mask
-        for idx in range(len(self.data)):
-            mask = ~np.all(self.data[idx]["mol"] == 0, axis=1)
-            self.data[idx]["mask"] = mask.astype(bool)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return (
-            self.data[idx]["title"],
-            self.data[idx]["mol"],
-            self.data[idx]["mask"],
-            self.data[idx]["y"],
-        )
-
-
-class MolCSV_Dataset(Dataset):
-    def __init__(self, x, mode="path"):
-        assert mode in ["path", "data"]
-        if mode == "path":
-            with open(x, "rb") as file:
-                self.data = pickle.load(file)
-            print("Load {} data from {}".format(len(self.data), x))
-        elif mode == "data":
-            self.data = x
-
-        # generate mask
-        for idx in range(len(self.data)):
-            mask = ~np.all(self.data[idx]["mol"] == 0, axis=1)
-            self.data[idx]["mask"] = mask.astype(bool)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return (
-            self.data[idx]["title"],
-            self.data[idx]["mol"],
-            self.data[idx]["mask"],
-            self.data[idx]["prop"],
-        )
-
-
-class MolCSV_Test_Dataset(Dataset):
-    def __init__(self, x, mode="path"):
-        assert mode in ["path", "data"]
-        if mode == "path":
-            with open(x, "rb") as file:
-                self.data = pickle.load(file)
-            print("Load {} data from {}".format(len(self.data), x))
-        elif mode == "data":
-            self.data = x
-
-        # generate mask
-        for idx in range(len(self.data)):
-            mask = ~np.all(self.data[idx]["mol"] == 0, axis=1)
-            self.data[idx]["mask"] = mask.astype(bool)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return self.data[idx]["title"], self.data[idx]["mol"], self.data[idx]["mask"]
-
-
-class MolSSL_Dataset(Dataset):
-    """Dataset for masked distance reconstruction pretraining.
-
-    SSL task — Masked distance reconstruction:
-        Randomly mask mask_ratio of valid atoms per molecule.  All 21
-        feature dimensions (including xyz in dims 0–2) are zeroed for
-        masked atoms.  For each masked atom, pair it with every unmasked
-        valid atom, then sample num_pairs such (masked, unmasked) pairs.
-        Predict the Euclidean distance between the two atoms using the
-        original (unmasked) coordinates as ground truth.
-        Loss: MSELoss on raw distances (Å).
-
-    Zeroing xyz of masked atoms is essential: the encoder cannot read
-    the coordinates directly and must infer the masked atom's location
-    from its unmasked chemical context.  Because MolConv2 is E(3)-
-    invariant and distances are also SE(3)-invariant, the encoder–head
-    mapping is consistent regardless of molecular orientation.
-
-    Expected pkl format (produced by chembl2pkl.py):
-        {"title": str, "smiles": str, "mol": np.ndarray [max_atom_num, 21],
-         "mask": np.ndarray [max_atom_num] bool}
-
-    Returns:
-        title        : str
-        mol_masked   : float32 [max_atom_num, 21]  — all dims zeroed for masked atoms
-        valid_mask   : bool    [max_atom_num]
-        pair_indices : int64   [num_pairs, 2]       — (masked_i, unmasked_j)
-        distances    : float32 [num_pairs]          — true Euclidean distances (Å)
+    It deliberately does NOT return `env`. The same loaded file is used to predict MS/MS, CCS and
+    RT, but those three models do not share an experimental-condition layout: MS/MS expects
+    [collision energy] + a 5-way adduct one-hot, CCS a 6-way adduct set of its own, RT a single
+    placeholder. Emitting one of those layouts here would silently mis-encode the other two -- an
+    adduct shifted by one index still has the right width, so nothing would raise. The caller
+    supplies `env` for the task it is running; see `MolNet._task_env`.
     """
 
-    def __init__(self, x, mask_ratio=0.15, num_pairs=128, mode="path"):
-        if mode == "path":
-            with open(x, "rb") as f:
-                data = pickle.load(f)
-            print("Load {} data from {}".format(len(data), x))
-        elif mode == "data":
-            data = x
-        else:
-            raise ValueError("Unsupported mode: {}".format(mode))
+    def __init__(self, data, precursor_type=False,
+                 data_config_path=_DEFAULT_DATA_CONFIG, resolution=0.2, max_mz=1500):
+        if precursor_type:
+            data = _filter_precursor_type(data, precursor_type)
 
-        for idx in range(len(data)):
-            data[idx]["mask"] = ~np.all(data[idx]["mol"] == 0, axis=1)
-
-        self.data       = data
-        self.mask_ratio = mask_ratio
-        self.num_pairs  = num_pairs
+        _require_bond_graph(data, "in-memory data")
+        self.data = _add_precursor_bins(
+            _add_masks(data), resolution, max_mz, data_config_path
+        )
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        entry      = self.data[idx]
-        mol_orig   = entry["mol"]   # [max_atom_num, 21], read-only
-        valid_mask = entry["mask"]  # [max_atom_num] bool
-
-        valid_indices = np.where(valid_mask)[0]
-        n_valid = len(valid_indices)
-
-        if n_valid >= 2:
-            # ---------------------------------------------------------------- #
-            # Select masked atoms: at least 1, at most n_valid-1 so there is  #
-            # always at least one unmasked atom to pair with.                  #
-            # ---------------------------------------------------------------- #
-            n_mask = max(1, min(int(n_valid * self.mask_ratio), n_valid - 1))
-            masked_local = np.random.choice(n_valid, n_mask, replace=False)
-            masked_global = valid_indices[masked_local]
-
-            # Zero all 21 dims (including xyz) for masked atoms
-            mol_masked = mol_orig.copy()
-            mol_masked[masked_global, :] = 0.0
-
-            # ---------------------------------------------------------------- #
-            # Build (masked, unmasked) pair pool                               #
-            # ---------------------------------------------------------------- #
-            masked_set       = set(masked_global.tolist())
-            unmasked_global  = np.array(
-                [v for v in valid_indices if v not in masked_set], dtype=np.int64
-            )
-
-            # All combinations: each masked atom × each unmasked atom
-            mg, ug = np.meshgrid(masked_global, unmasked_global, indexing="ij")
-            pool = np.stack([mg.ravel(), ug.ravel()], axis=1)  # [n_mask * n_unmasked, 2]
-
-            chosen = np.random.choice(
-                len(pool), self.num_pairs,
-                replace=(len(pool) < self.num_pairs),
-            )
-            pair_indices = pool[chosen].astype(np.int64)  # [num_pairs, 2]
-
-            # True Euclidean distances from original (unmasked) coordinates
-            xyz = mol_orig[:, :3]
-            diffs = xyz[pair_indices[:, 0]] - xyz[pair_indices[:, 1]]
-            distances = np.linalg.norm(diffs, axis=1).astype(np.float32)
-
-        else:
-            mol_masked   = mol_orig.copy()
-            pair_indices = np.zeros((self.num_pairs, 2), dtype=np.int64)
-            distances    = np.zeros(self.num_pairs, dtype=np.float32)
-
+        d = self.data[idx]
         return (
-            entry["title"],
-            mol_masked.astype(np.float32),  # [max_atom_num, 21]
-            valid_mask.astype(bool),        # [max_atom_num]
-            pair_indices,                   # [num_pairs, 2] int64
-            distances,                      # [num_pairs] float32 (Å)
+            d["title"],
+            d["mol"],
+            d["mask"],
+            d["neighbor_idx"],
+            d["neighbor_mask"],
+            np.int64(d["prec_idx"]),
         )
+
+
+class MolScalarDataset(Dataset):
+    """Scalar-target training records (retention time, CCS, ...).
+
+    :param path: Path to the PKL file.
+    :param target_key: Record key holding the regression target (e.g. ``'rt'``, ``'ccs'``).
+    """
+
+    def __init__(self, path, target_key):
+        self.target_key = target_key
+        self.data, source = _load_records(path, "path")
+        logger.info("Loaded %d records from %s", len(self.data), source)
+        _require_bond_graph(self.data, source)
+        _add_masks(self.data)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        d = self.data[idx]
+        return (
+            d["title"],
+            d["mol"],
+            d["mask"],
+            d["neighbor_idx"],
+            d["neighbor_mask"],
+            np.asarray(d["env"], dtype=np.float32),
+            d[self.target_key],
+        )
+
+
+class MolRTDataset(MolScalarDataset):
+    """Retention time. `env` is a single placeholder column -- SMRT is one chromatographic
+    method, so there are no experimental covariates to encode; retention is predicted from
+    structure alone."""
+
+    def __init__(self, path):
+        super().__init__(path, target_key="rt")
+
+
+class MolCCSDataset(MolScalarDataset):
+    """Collision cross-section.
+
+    `env` is an adduct one-hot over the CCS adduct set, which is NOT the MS/MS set: AllCCS
+    measurements are dominated by adducts the MS/MS data barely has. The layout is recorded in
+    the checkpoint so it cannot drift away from the data.
+    """
+
+    def __init__(self, path):
+        super().__init__(path, target_key="ccs")
+
+
+# Deprecated aliases.
+Mol_Dataset = MolInferenceDataset
+MolMS_Dataset = MolMSDataset
+MolRT_Dataset = MolRTDataset
+MolCCS_Dataset = MolCCSDataset

@@ -1,26 +1,51 @@
+# ==============================================================================
+# MS/MS TASK CONFIG. Which section to edit:
+#   model: the ARCHITECTURE and output space — this is what a checkpoint IS.
+#          The loader refuses checkpoints whose embedded config contradicts it.
+#          Never edit to "tune"; only to define a deliberately new architecture
+#          you will train from scratch.
+#   train: optimisation hyperparameters (epochs, lr, batch size, patience).
+#          THIS is the section to edit when training on your own data.
+#   release: released-checkpoint locations/URLs and evaluation filters.
+# Molecule featurisation lives in encoding_etkdgv3.yml (shared by all tasks);
+# MolNet cross-checks the duplicated sizes at startup.
+# ==============================================================================
 model:
   in_dim: 21
-  add_num: 6
+  add_num: 6              # env = 1 normalised collision energy + 5 adduct one-hot
+  # Scale of the NCE in env[0] that the CHECKPOINT was trained with. The v1.4.0 release
+  # models use 'fraction' (0.35 for 35%, see scripts/build_msms_dataset.py: ce_to_nce);
+  # pre-v1.4.0 checkpoints were trained on 'percent' (35.0) -- load them with a config
+  # that says so. Feeding the wrong scale is a silent 100x error in collision energy.
+  ce_scale: fraction
   max_atom_num: 300
   resolution: 0.2
   max_mz: 1500
   emb_dim: 2048
-  k: 5
+  # k is the number of neighbour slots. In BOND mode these are covalent neighbours, not spatial
+  # ones, so k must cover the maximum atom degree (4) plus self-padding -> 6. It was 5 here while
+  # every trained model used 6, which would have silently built a different encoder.
+  k: 6
   dropout: 0.2
   encode_layers: [64, 64, 128, 256, 512, 1024]
+  # The last width is also the width of the bidirectional head's shared trunk, so it bounds the
+  # rank of the predicted spectrum. Keep it >= the number of directions you expect to represent.
   decode_layers: [2048, 2048, 2048, 2048, 2048]
 
 train:
   epochs: 200
-  batch_size: 64
+  batch_size: 32
   num_workers: 0
-  lr: 0.001
-  weight_decay: 0.01
-  augmentation: true
-  early_stop_patience: 10
+  # Tuned on QTOF (val cosine, 51,820 train / 7,275 test). lr 3e-4 -> 0.5795, 1e-4 -> 0.6133,
+  # 1e-4 + wd 0.05 -> 0.6202, 3e-5 -> 0.6208. The top two are within 0.0006 of each other, well
+  # inside the noise, so the recipe below is the one that also transfers to Orbitrap.
+  lr: 0.0001
+  weight_decay: 0.05
+  grad_clip: 5.0          # 0 disables
+  early_stop_patience: 15
 
-test: 
-  local_path_qtof: './check_point/molnet_qtof_etkdgv3.pt'
-  local_path_orbitrap: './check_point/molnet_orbitrap_etkdgv3.pt'
-  github_release_url_qtof: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.3.1/molnet_qtof_etkdgv3.zip'
-  github_release_url_orbitrap: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.3.1/molnet_orbitrap_etkdgv3.zip'
+release:
+  local_path_qtof: './check_point/molnet_qtof_v1.4.0.pt'
+  local_path_orbitrap: './check_point/molnet_orbitrap_v1.4.0.pt'
+  github_release_url_qtof: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.4.0/molnet_qtof_v1.4.0.zip'
+  github_release_url_orbitrap: 'https://github.com/JosieHong/3DMolMS/releases/download/v1.4.0/molnet_orbitrap_v1.4.0.zip'

@@ -53,7 +53,7 @@ A header row followed by one molecule per line. Column names are **case-sensitiv
 .. code-block:: text
 
    ID,SMILES,Precursor_Type,Collision_Energy
-   demo_0,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,40 V
+   demo_0,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,80 V
 
 - ``ID`` — molecule identifier, used as the result title. **Required.**
 - ``SMILES`` — the molecule structure. **Required.**
@@ -62,14 +62,17 @@ A header row followed by one molecule per line. Column names are **case-sensitiv
 - ``Collision_Energy`` — e.g. ``40 V`` (the unit is optional). Needed for MS/MS.
 
 Omit the columns a task does not use — ``ID,SMILES`` alone is enough for RT or
-``save_features``. See ``examples/input_msms.csv``, ``examples/input_ccs.csv``, and
-``examples/input_savefeat.csv``.
+``save_features``. See ``examples/demo_input.csv``.
+
+The ``Collision_Energy`` column accepts free-text values in either unit — absolute
+(``20 V``) or normalized (``NCE=35%``) — per row. Alternatively, give plain numbers and
+add an optional ``Collision_Energy_Unit`` column (``eV`` or ``NCE``) stating how to read
+them; rows with an unrecognised unit are skipped.
 
 MGF
 ~~~
 
-One ``BEGIN IONS`` … ``END IONS`` block per molecule. The parameters below are read
-(keys are case-insensitive); peak lines are **optional** for prediction:
+One ``BEGIN IONS`` … ``END IONS`` block per molecule (keys are case-insensitive):
 
 .. code-block:: text
 
@@ -77,19 +80,23 @@ One ``BEGIN IONS`` … ``END IONS`` block per molecule. The parameters below are
    TITLE=demo_0
    SMILES=C/C(=C\CNc1nc[nH]c2ncnc1-2)CO
    PRECURSOR_TYPE=[M+H]+
-   COLLISION_ENERGY=40 V
+   COLLISION_ENERGY=80 V
    END IONS
 
-Only ``TITLE``, ``SMILES``, ``PRECURSOR_TYPE`` and ``COLLISION_ENERGY`` are used;
-other fields (``PRECURSOR_MZ``, ``CHARGE``, peak lists, …) are ignored on input.
-See ``examples/input_msms.mgf``.
+Each block must state ``TITLE``, ``SMILES``, ``PRECURSOR_TYPE`` and
+``COLLISION_ENERGY``; blocks missing one of them are skipped with a warning. All other
+fields are ignored on input — including peak lists and any stated ``PRECURSOR_MZ``
+(the precursor m/z is computed from the SMILES and adduct, exactly as for CSV input),
+so records exported from a spectral library load unchanged. See
+``examples/demo_input.mgf``.
 
 SDF
 ~~~
 
 Used for **preparing training or reference sets in bulk** (e.g. METLIN for RT, HMDB
-for a reference library) via the preprocessing scripts (``scripts/preprocess.py``,
-``scripts/hmdb2pkl.py``, ``scripts/refmet2pkl.py``). These read each SDF molecule
+for a reference library) via the preprocessing scripts (``scripts/build_msms_dataset.py``,
+``scripts/build_rt_ccs_dataset.py``, ``scripts/hmdb2pkl.py``, ``scripts/refmet2pkl.py``).
+These read each SDF molecule
 block and its properties (SMILES and task labels such as retention time) and emit a
 PKL. SDF is **not** a direct ``MolNet.load_data`` inference input — convert it to a
 PKL first.
@@ -105,11 +112,13 @@ inputs are converted to this on load).
 
    [
      {
-       "title":  "demo_0",                  # str  — molecule id
-       "smiles": "C/C(=C\\CNc1...)CO",      # str
-       "mol":    np.ndarray,                 # [max_atom_num, 21] — 3D conformation
-       "env":    np.ndarray,                 # collision-energy + precursor-type context
-       "spec":   np.ndarray,                 # binned reference spectrum (training only)
+       "title":         "demo_0",            # str  — molecule id
+       "smiles":        "C/C(=C\\CNc1...)CO", # str
+       "mol":           np.ndarray,           # [max_atom_num, 21] — 3D conformation
+       "neighbor_idx":  np.ndarray,           # [max_atom_num, k] — covalent bond graph
+       "neighbor_mask": np.ndarray,           # [max_atom_num, k] — real-bond mask
+       "env":           np.ndarray,           # collision-energy + precursor-type context
+       "spec":          np.ndarray,           # binned reference spectrum (MS/MS training only)
      },
      ...
    ]
@@ -118,8 +127,12 @@ inputs are converted to this on load).
   3–20 are per-atom attributes and the atom-type one-hot.
 - ``env`` — the normalized collision energy plus the precursor-type one-hot
   (present for MS/MS and CCS).
+- ``neighbor_idx`` / ``neighbor_mask`` — the covalent bond graph. The released
+  encoder aggregates over bonded neighbours, so these are **required**; pickles
+  built by pre-v1.4.0 preprocessing lack them and are refused with an error.
 - ``spec`` — the binned reference spectrum; needed only for training / evaluation,
-  not for prediction.
+  not for prediction. RT / CCS training pickles carry an ``rt`` / ``ccs`` target
+  value instead.
 
 Output formats
 --------------
@@ -129,7 +142,15 @@ MS/MS — MGF
 
 ``pred_msms`` writes one ``BEGIN IONS`` block per molecule with the predicted
 m/z–intensity peak list, alongside ``TITLE``, ``SMILES``, ``PRECURSOR_TYPE`` and
-``COLLISION_ENERGY``:
+``COLLISION_ENERGY``. Predicted spectra never contain peaks above the precursor m/z —
+in particular, no isotope envelope. The released models may predict a surviving
+precursor ion at the precursor m/z itself (prominent at low collision energy); models
+trained with the package's own preprocessing (``generate_ms``) have the precursor and
+isotope peaks removed from their targets and do not predict them.
+
+``MolNet.pred_all`` additionally embeds the RT and CCS predictions in each ion block as
+``PRED_RT`` (seconds) and ``PRED_CCS`` (Å²) — named to make clear they are predictions,
+not measurements — and, for CSV output, as ``Pred RT`` / ``Pred CCS`` columns:
 
 .. code-block:: text
 
@@ -137,9 +158,11 @@ m/z–intensity peak list, alongside ``TITLE``, ``SMILES``, ``PRECURSOR_TYPE`` a
    TITLE=demo_0
    SMILES=C/C(=C\CNc1nc[nH]c2ncnc1-2)CO
    PRECURSOR_TYPE=[M+H]+
-   COLLISION_ENERGY=39.98
-   41.00000 39.8
-   43.00000 172.5
+   COLLISION_ENERGY=79.95
+   PRED_RT=227.74
+   PRED_CCS=147.9
+   51.00000 122.1
+   53.00000 134.3
    ...
    END IONS
 

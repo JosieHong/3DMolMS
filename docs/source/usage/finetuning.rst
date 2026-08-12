@@ -1,7 +1,7 @@
 Fine-tune on your own data
 ==========================
 
-This section introduces how to fine-tune the model for regression tasks, such as retention time prediction, on your own data.
+This section shows how to fine-tune a regression model (retention time or CCS) on your own measurements.
 
 Setup
 -----
@@ -11,50 +11,44 @@ Please set up the environment as shown in the :doc:`../sourcecode` page.
 **Step 1**: Data preparation
 ----------------------------
 
-Please prepare the data of molecular properties as:
-
-.. code-block:: text
-
-   ,id,smiles,prop
-   0,0382_00004,NC(=O)N1c2ccccc2[C@H](O)[C@@H](O)c2ccccc21,5.79
-   1,0382_00005,CN(C)[C@@H]1C(=O)C(C(N)=O)=C(O)[C@@]2(O)C(=O)C3=C(O)c4c(O)ccc(Cl)c4[C@@](C)(O)[C@H]3C[C@@H]12,4.5
-   2,0382_00008,Cc1onc(-c2c(Cl)cccc2Cl)c1C(=O)N[C@@H]1C(=O)N2[C@@H](C(=O)O)C(C)(C)S[C@H]12,7.8
-   3,0382_00009,C[C@H]1c2cccc(O)c2C(O)=C2C(=O)[C@]3(O)C(O)=C(C(N)=O)C(=O)[C@@H](N(C)C)[C@@H]3[C@@H](O)[C@@H]21,6.2
-   4,0382_00010,C#C[C@]1(O)CC[C@H]2[C@@H]3CCc4cc(O)ccc4[C@H]3CC[C@@]21C,9.46
-   5,0382_00012,Cc1onc(-c2ccccc2)c1C(=O)N[C@@H]1C(=O)N2[C@@H](C(=O)O)C(C)(C)S[C@H]12,6.9
-
-where ``prop`` column is the RT or CCS values. Split your data into train and test CSV files, then convert each to pkl using:
+Prepare a CSV with an ``ID``, a ``SMILES`` and a target column per molecule, split into train and test files. Convert each split into a training pickle with ``molecules_to_records`` (which generates the 3D conformation and the covalent bond graph), then attach the target under the task's key — ``rt`` or ``ccs``:
 
 .. code-block:: python
 
-   from molnetpack import csv2pkl_wfilter
-   import yaml, pickle
+   import pickle
+   import numpy as np
+   import pandas as pd
+   import yaml
+   from molnetpack import molecules_to_records, config_path
 
-   with open('./molnetpack/config/preprocess_etkdgv3.yml') as f:
-       cfg = yaml.safe_load(f)
+   cfg = yaml.safe_load(open(config_path("encoding_etkdgv3.yml")))["encoding"]
 
-   for split in ['train', 'test']:
-       data = csv2pkl_wfilter(f'<path_to_{split}.csv>', cfg['encoding'])
-       pickle.dump(data, open(f'<path_to_{split}.pkl>', 'wb'))
+   for split in ("train", "test"):
+       df = pd.read_csv(f"<path_to_{split}.csv>")   # columns: ID, SMILES, RT
+       records = molecules_to_records(df, cfg)
+       targets = dict(zip(df["ID"], df["RT"]))
+       for r in records:
+           r["rt"] = float(targets[r["title"]])
+           # RT uses no experimental covariates: env is a single placeholder column.
+           r["env"] = np.zeros(1, dtype=np.float32)
+       pickle.dump(records, open(f"<path_to_{split}.pkl>", "wb"))
+
+For CCS, the target key is ``ccs`` and ``env`` must be the adduct one-hot from the CCS config instead of a placeholder:
+
+.. code-block:: python
+
+   ccs_layout = yaml.safe_load(open(config_path("molnet_ccs_tl.yml")))["encoding"]["precursor_type"]
+   # per record, with the adduct string for that measurement:
+   r["ccs"] = float(targets[r["title"]])
+   r["env"] = np.asarray(ccs_layout[adduct], dtype=np.float32)
 
 **Step 2**: Training
 --------------------
 
-Fine-tune the model.
-
-*Using the command-line script:*
-
-.. code-block:: bash
-
-   python scripts/train.py --task rt \
-   --train_data <path_to_train.pkl> \
-   --test_data <path_to_test.pkl> \
-   --checkpoint_path <path_to_save_checkpoint> \
-   --transfer \
-   --resume_path <path_to_pretrained_model> \
-   --seed 42
-
-*Using the Python API:*
+Fine-tune from the ChEMBL-pretrained encoder, ``molnet_pre_geobond.pt`` — download it from
+the `GitHub release <https://github.com/JosieHong/3DMolMS/releases>`_ into ``./check_point/``,
+or produce it with the :doc:`pretraining pipeline <../advanced_usage/pretrain>`. The released
+v1.4.0 models all warm-start from it. ``transfer=True`` loads only the encoder weights; the regression head starts fresh. The encoder is frozen by default (head-only training); pass ``freeze_encoder=False`` to train everything:
 
 .. code-block:: python
 
@@ -69,7 +63,7 @@ Fine-tune the model.
        train_data='<path_to_train.pkl>',
        valid_data='<path_to_test.pkl>',
        checkpoint_path='<path_to_save_checkpoint>',
-       resume_path='<path_to_pretrained_model>',
+       resume_path='./check_point/molnet_pre_geobond.pt',
        transfer=True,
        use_scaler=True,
    )
@@ -83,18 +77,17 @@ Predict unlabeled data.
 
 .. code-block:: bash
 
-   python scripts/predict.py --task prop \
+   python scripts/predict.py --task rt \
    --test_data <path_to_csv_or_pkl> \
    --resume_path <path_to_checkpoint> \
-   --result_path <path_to_results.csv> \
-   --seed 42
+   --result_path <path_to_results.csv>
 
 *Using the Python API:*
 
 .. code-block:: python
 
    # After training, the model is ready immediately — no reload needed.
-   # To use an existing checkpoint instead, load it first:
+   # To use an existing checkpoint instead, pass it explicitly:
    molnet_engine.load_data('<path_to_csv_or_pkl>')
    rt_df = molnet_engine.pred_rt(
        path_to_results='<path_to_results.csv>',

@@ -11,7 +11,7 @@ from rdkit import RDLogger
 
 RDLogger.DisableLog("rdApp.*")
 
-from molnetpack import filter_mol, sdf2pkl_with_cond
+from molnetpack import config_path, filter_mol, sdf2pkl_with_cond
 
 
 if __name__ == "__main__":
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_config_path",
         type=str,
-        default="./config/preprocess_etkdgv3.yml",
+        default=config_path("encoding_etkdgv3.yml"),
         help="path to configuration",
     )
     args = parser.parse_args()
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     supp = []
     for idx, row in df.iterrows():
         mol = Chem.MolFromSmiles(row["smiles"])
-        if mol != None:
+        if mol is not None:
             mol.SetProp("DATABASE_ID", "REFMET_" + str(idx))
             supp.append(mol)
     print(

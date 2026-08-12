@@ -133,3 +133,8 @@ dmypy.json
 dist/
 check_point/
 data/*
+release/
+
+# macOS metadata and local docs builds
+.DS_Store
+docs/build/

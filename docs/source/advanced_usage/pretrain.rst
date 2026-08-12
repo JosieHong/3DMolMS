@@ -1,45 +1,58 @@
-Pretraining 3DMolMS on QM9
-==========================
+Pretraining the encoder on ChEMBL
+=================================
 
-This guide explains how to pretrain the 3DMolMS model on the QM9 dataset.
+The released v1.4.0 models all warm-start from a ChEMBL-pretrained encoder,
+``molnet_pre_geobond.pt``, available from the
+`GitHub release <https://github.com/JosieHong/3DMolMS/releases>`_ — download and unzip it
+into ``./check_point/`` to fine-tune without running this pipeline. The rest of this page
+describes how that checkpoint is produced.
+
+The encoder is pretrained with a geometric self-supervised task before fine-tuning on MS/MS, RT or CCS. The task is coordinate denoising: Gaussian noise is added to the atom coordinates, and the encoder's rotation-invariant per-atom features must reconstruct each atom's clean local bond geometry (squared bond lengths and bond angles, both O(3)-invariant). This teaches the encoder the bond lengths and angles that the bond-graph aggregation exposes, without any labels.
 
 Setup
 -----
 
 Please set up the environment as shown in the :doc:`../sourcecode` page.
 
-**Step 1**: Data preparation
-----------------------------
+**Step 1**: Build the conformer set
+-----------------------------------
 
-Download the QM9 dataset from `Figshare <https://figshare.com/collections/Quantum_chemistry_structures_and_properties_of_134_kilo_molecules/978904>`_. The expected data directory structure is:
-
-.. code-block:: text
-
-   |- data
-     |- qm9
-       |- dsgdb9nsd.xyz.tar.bz2
-       |- dsC7O2H10nsd.xyz.tar.bz2
-       |- uncharacterized.txt
-
-**Step 2**: Preprocessing
--------------------------
-
-Use the following commands to preprocess the datasets. The dataset configuration is stored in ``./molnetpack/config/preprocess_etkdgv3.yml``.
+``scripts/chembl2pkl.py`` downloads ChEMBL structures (or reads a local SDF), generates ETKDGv3 conformers, and featurises them with the same encoding config as every downstream task, so the pretrained weights transfer without a featurisation mismatch:
 
 .. code-block:: bash
 
-   python scripts/qm92pkl.py --data_config_path ./molnetpack/config/preprocess_etkdgv3.yml
+   # quick test: a few thousand molecules from the EBI FTP
+   python scripts/chembl2pkl.py --output ./data/chembl_ssl.pkl --limit 5000
 
-**Step 3**: Pretraining
------------------------
+   # full run
+   python scripts/chembl2pkl.py --output ./data/chembl_ssl.pkl
 
-Use the following commands to pretrain the model. The model and training settings are in ``./molnetpack/config/molnet_pre.yml``.
+**Step 2**: Attach the bond graph
+---------------------------------
+
+``scripts/build_chembl_dataset.py`` adds the covalent bonded-neighbour indices (k=6, matching the fine-tuning encoder) and writes the train/valid pickles used by the pretrainer:
 
 .. code-block:: bash
 
-   python scripts/pretrain.py \
-   --train_data ./data/qm9_etkdgv3_train.pkl \
-   --test_data ./data/qm9_etkdgv3_test.pkl \
-   --model_config_path ./molnetpack/config/molnet_pre.yml \
-   --data_config_path ./molnetpack/config/preprocess_etkdgv3.yml \
-   --checkpoint_path ./check_point/molnet_pre_etkdgv3.pt
+   python scripts/build_chembl_dataset.py
+
+**Step 3**: Pretrain
+--------------------
+
+.. code-block:: bash
+
+   python scripts/pretrain_geo.py --gpu 0 --epochs 50 --batch 128 --sigma 0.2 \
+   --ckpt ./check_point/molnet_pre_geobond.pt
+
+``--sigma`` is the coordinate-noise standard deviation in Ångström.
+
+**Step 4**: Use the pretrained encoder
+--------------------------------------
+
+Pass the checkpoint as the transfer source when training a task model — ``--pretrain`` in the CLI trainers, or ``resume_path=... , transfer=True`` in :meth:`molnetpack.MolNet.train`. Only the encoder weights are loaded; task heads always start fresh, and the encoder settings are validated against the checkpoint's embedded config.
+
+.. code-block:: bash
+
+   python scripts/train_msms_release.py --pretrain ./check_point/molnet_pre_geobond.pt \
+   --train_data ./data/qtof_all_train.pkl --val_data ./data/qtof_all_val.pkl \
+   --test_data ./data/qtof_all_test.pkl --ckpt ./check_point/molnet_qtof_tl.pt --gpu 0

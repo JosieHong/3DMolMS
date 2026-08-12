@@ -20,6 +20,7 @@ There are two ways to run it: the :doc:`molnetpack Python package <molnetpack>` 
 
    molnetpack
    molnetpack_training
+   api
 
 .. toctree::
    :maxdepth: 1
@@ -27,6 +28,8 @@ There are two ways to run it: the :doc:`molnetpack Python package <molnetpack>` 
 
    encoder
    supported_formats
+   configuration
+   checkpoints
 
 .. toctree::
    :maxdepth: 2

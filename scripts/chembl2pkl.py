@@ -1,6 +1,7 @@
 """Convert ChEMBL SMILES to a 3DMolMS self-supervised pretraining pkl.
 
-Produces the exact format that MolSSL_Dataset / scripts/pretrain_ssl.py read:
+Produces the conformer set that scripts/build_chembl_dataset.py turns into the
+bond-graph pickles used by scripts/pretrain_geo.py:
     {"title": str, "smiles": str,
      "mol": np.ndarray[max_atom_num, 21], "mask": np.ndarray[max_atom_num] bool}
 
@@ -27,7 +28,7 @@ Usage:
       --output ./data/chembl_ssl.pkl --n_jobs 8
 
 With the default --train_frac 0.95 the output is split into
-<output>_train.pkl / <output>_valid.pkl, ready for pretrain_ssl.py.
+<output>_train.pkl / <output>_valid.pkl, ready for build_chembl_dataset.py.
 """
 
 import argparse
@@ -45,7 +46,7 @@ from tqdm import tqdm
 from rdkit import Chem, RDLogger
 from rdkit.Chem import Descriptors
 
-from molnetpack import conformation_array
+from molnetpack import config_path, conformation_array
 
 RDLogger.DisableLog("rdApp.*")
 
@@ -156,7 +157,7 @@ def parse_args():
     p.add_argument("--chembl_url", type=str, default=_CHEMBL_CHEMREPS_URL,
                    help="ChEMBL chemreps TSV.GZ URL or local path (used if no --sdf_path).")
     p.add_argument("--config_path", type=str,
-                   default="./molnetpack/config/preprocess_etkdgv3.yml",
+                   default=config_path("encoding_etkdgv3.yml"),
                    help="Preprocess config supplying the `encoding` (atom_type / conf_type).")
     p.add_argument("--conf_type", type=str, default=None,
                    choices=["etkdgv3", "mmff", "2d", "etkdg"],

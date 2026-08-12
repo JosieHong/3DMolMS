@@ -1,124 +1,28 @@
+"""The MolConv encoder layer.
+
+:class:`MolConv` is E(3)-invariant and aggregates over a supplied neighbour graph — the
+covalent bond graph in every released model — with optional chirality awareness.
+
+``MolConv2`` is a deprecated alias of :class:`MolConv`.
+"""
+
+from typing import Optional, Tuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from decimal import *
-from typing import Tuple
 
 
-class MolConv1(nn.Module):
-    def __init__(self, in_dim, out_dim, k, remove_xyz=False):
-        super(MolConv1, self).__init__()
-        self.k = k
-        self.in_dim = in_dim
-        self.out_dim = out_dim
-        self.remove_xyz = remove_xyz
-
-        self.dist_ff = nn.Sequential(
-            nn.Conv2d(1, 1, kernel_size=1, bias=False), nn.BatchNorm2d(1), nn.Sigmoid()
-        )
-        self.gm2m_ff = nn.Sequential(
-            nn.Conv2d(k, 1, kernel_size=1, bias=False), nn.BatchNorm2d(1), nn.Sigmoid()
-        )
-
-        if remove_xyz:
-            self.update_ff = nn.Sequential(
-                nn.Conv2d(in_dim - 3, out_dim, kernel_size=1, bias=False),
-                nn.BatchNorm2d(out_dim),
-                nn.LeakyReLU(negative_slope=0.02),
-            )
-        else:
-            self.update_ff = nn.Sequential(
-                nn.Conv2d(in_dim, out_dim, kernel_size=1, bias=False),
-                nn.BatchNorm2d(out_dim),
-                nn.LeakyReLU(negative_slope=0.02),
-            )
-
-    def forward(self, x: torch.Tensor, idx_base: torch.Tensor) -> torch.Tensor:
-        dist, gm2, feat_c, feat_n = self._generate_feat(
-            x, idx_base, k=self.k, remove_xyz=self.remove_xyz
-        )
-        """Returned features: 
-		dist: torch.Size([batch_size, 1, point_num, k])
-		gm2: torch.Size([batch_size, k, point_num, k]) 
-		feat_c: torch.Size([batch_size, in_dim, point_num, k]) 
-		feat_n: torch.Size([batch_size, in_dim, point_num, k])
-		"""
-        w1 = self.dist_ff(dist)
-        w2 = self.gm2m_ff(gm2)
-
-        feat = torch.mul(w1, w2) * feat_n + (1 - torch.mul(w1, w2)) * feat_c
-        feat = self.update_ff(feat)
-        feat = feat.mean(dim=-1, keepdim=False)
-        return feat
-
-    def _generate_feat(
-        self, x: torch.Tensor, idx_base: torch.Tensor, k: int, remove_xyz: bool
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        batch_size, num_dims, num_points = x.size()
-
-        # local graph (knn)
-        inner = -2 * torch.matmul(x.transpose(2, 1), x)
-        xx = torch.sum(x**2, dim=1, keepdim=True)
-        pairwise_distance = -xx - inner - xx.transpose(2, 1)
-        dist, idx = pairwise_distance.topk(k=k, dim=2)  # (batch_size, num_points, k)
-        dist = -dist
-
-        idx = idx + idx_base
-        idx = idx.view(-1)
-
-        x = x.transpose(
-            2, 1
-        ).contiguous()  # (batch_size, num_points, num_dims) -> (batch_size*num_points, num_dims)
-        graph_feat = x.view(batch_size * num_points, -1)[idx, :]
-        graph_feat = graph_feat.view(batch_size, num_points, k, num_dims)
-
-        # gram matrix
-        gm_matrix = torch.matmul(graph_feat, graph_feat.permute(0, 1, 3, 2))
-
-        # double gram matrix
-        sub_feat = gm_matrix[:, :, :, 0].unsqueeze(3)
-        sub_gm_matrix = torch.matmul(sub_feat, sub_feat.permute(0, 1, 3, 2))
-        sub_gm_matrix = F.normalize(sub_gm_matrix, dim=1)
-
-        x = x.view(batch_size, num_points, 1, num_dims).repeat(1, 1, k, 1)
-
-        if remove_xyz:
-            return (
-                dist.unsqueeze(3).permute(0, 3, 1, 2).contiguous(),
-                sub_gm_matrix.permute(0, 3, 1, 2).contiguous(),
-                x[:, :, :, 3:].permute(0, 3, 1, 2).contiguous(),
-                graph_feat[:, :, :, 3:].permute(0, 3, 1, 2).contiguous(),
-            )
-        else:
-            return (
-                dist.unsqueeze(3).permute(0, 3, 1, 2).contiguous(),
-                sub_gm_matrix.permute(0, 3, 1, 2).contiguous(),
-                x.permute(0, 3, 1, 2).contiguous(),
-                graph_feat.permute(0, 3, 1, 2).contiguous(),
-            )
-
-    def __repr__(self):
-        return (
-            self.__class__.__name__
-            + " k = "
-            + str(self.k)
-            + " ("
-            + str(self.in_dim)
-            + " -> "
-            + str(self.out_dim)
-            + ")"
-        )
-
-
-class MolConv2(nn.Module):
-    """E(3)-invariant encoder layer (v2).
+class MolConv(nn.Module):
+    """E(3)-invariant point-cloud convolution layer.
 
     The first layer (remove_xyz=True, input contains raw xyz in dims 0–2)
     builds its Gram matrix from relative displacement vectors (xj − xi)
     rather than absolute positions. The dot product <(xj−xi), (xk−xi)>
     encodes the angle ∠jik and is invariant to rotation and reflection;
     combined with (a) centering coordinates on the real-atom centroid and
-    (b) masking zero-padding atoms out of real atoms' kNN, the layer becomes
+    (b) a supplied neighbour graph whose padded slots self-point (see the
+    CONTRACT in ``forward``), the layer is
     fully E(3)-invariant (rotation + reflection + translation). Because the
     first layer strips xyz from its output, invariance propagates through the
     whole encoder. Subsequent layers (remove_xyz=False) have no xyz and use
@@ -130,14 +34,18 @@ class MolConv2(nn.Module):
     invariant, correct for the achiral 3DMolMS tasks (MS/MS, RT, CCS).
     """
 
-    def __init__(self, in_dim, out_dim, point_num, k, remove_xyz=False, chirality=False):
-        super(MolConv2, self).__init__()
+    def __init__(self, in_dim: int, out_dim: int, point_num: int, k: int,
+                 remove_xyz: bool = False, chirality: bool = False, bond_dim: int = 0):
+        super().__init__()
         self.k = k
         self.in_dim = in_dim
         self.out_dim = out_dim
         self.remove_xyz = remove_xyz
         self.chirality = bool(chirality) and remove_xyz
         extra_ch = 1 if self.chirality else 0
+        # bond_dim (>0) adds explicit per-edge bond features (type/conj/ring) into the neighbour
+        # message block feat_n, so the model sees discrete bond ORDER, not just bond length/angle.
+        self.bond_dim = int(bond_dim)
 
         self.dist_ff = nn.Sequential(
             nn.Conv2d(1, 1, kernel_size=1, bias=False),
@@ -146,43 +54,57 @@ class MolConv2(nn.Module):
         )
 
         if remove_xyz:
-            self.center_ff = nn.Sequential(
-                nn.Conv2d(in_dim - 3, in_dim + k - 3 + extra_ch, kernel_size=1, bias=False),
-                nn.LayerNorm((in_dim + k - 3 + extra_ch, point_num, k)),
-                nn.Sigmoid(),
-            )
-            self.update_ff = nn.Sequential(
-                nn.Conv2d(in_dim + k - 3 + extra_ch, out_dim, kernel_size=1, bias=False),
-                nn.LayerNorm((out_dim, point_num, k)),
-                nn.Softplus(beta=1.0, threshold=20.0),
-            )
+            fn = in_dim + k - 3 + extra_ch + self.bond_dim
+            center_in_dim = in_dim - 3
         else:
-            self.center_ff = nn.Sequential(
-                nn.Conv2d(in_dim, in_dim + k, kernel_size=1, bias=False),
-                nn.LayerNorm((in_dim + k, point_num, k)),
-                nn.Sigmoid(),
-            )
-            self.update_ff = nn.Sequential(
-                nn.Conv2d(in_dim + k, out_dim, kernel_size=1, bias=False),
-                nn.LayerNorm((out_dim, point_num, k)),
-                nn.Softplus(beta=1.0, threshold=20.0),
-            )
+            fn = in_dim + k + self.bond_dim
+            center_in_dim = in_dim
+        self.center_ff = nn.Sequential(
+            nn.Conv2d(center_in_dim, fn, kernel_size=1, bias=False),
+            nn.LayerNorm((fn, point_num, k)),
+            nn.Sigmoid(),
+        )
+        self.update_ff = nn.Sequential(
+            nn.Conv2d(fn, out_dim, kernel_size=1, bias=False),
+            nn.LayerNorm((out_dim, point_num, k)),
+            nn.Softplus(beta=1.0, threshold=20.0),
+        )
 
     def forward(
-        self, x: torch.Tensor, idx_base: torch.Tensor, mask: torch.Tensor
+        self, x: torch.Tensor, idx_base: torch.Tensor, mask: torch.Tensor,
+        neighbor_idx: Optional[torch.Tensor] = None,
+        neighbor_mask: Optional[torch.Tensor] = None,
+        bond_feat: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
+        # neighbor_idx [B, N, k] is REQUIRED: the atom's neighbours as a fixed, precomputed
+        # graph — normally the covalent bond graph, so the relative-displacement Gram encodes
+        # true BOND ANGLES and dist true BOND LENGTHS.
+        # bond_feat [B, N, k, bond_dim]: explicit per-edge bond descriptor concatenated into feat_n.
+        #
+        # CONTRACT — unused neighbour slots (atoms with degree < k) MUST be SELF-POINTING, i.e.
+        # neighbor_idx[b, i, s] = i, with neighbor_mask[b, i, s] = False. neighbor_mask zeroes their
+        # contribution AFTER update_ff, but the Gram / dist / LayerNorm statistics are computed over
+        # ALL k slots, so a padded slot pointing at some OTHER atom would perturb the real slots'
+        # normalisation. Self-pointing makes the relative displacement exactly zero, which is
+        # deterministic and inert. `data_utils.encoding.bond_graph_array` self-pads accordingly.
         dist, gm2, feat_c, feat_n, extra = self._generate_feat(
-            x, idx_base, mask, k=self.k, remove_xyz=self.remove_xyz
+            x, idx_base, mask, k=self.k, remove_xyz=self.remove_xyz, neighbor_idx=neighbor_idx
         )
+        parts = [feat_n, gm2]
         if extra is not None:
-            feat_n = torch.cat((feat_n, gm2, extra), dim=1)  # + chirality channel
-        else:
-            feat_n = torch.cat((feat_n, gm2), dim=1)  # [batch_size, in_dim+k, point_num, k]
+            parts.append(extra)                              # + chirality channel
+        if self.bond_dim > 0 and bond_feat is not None:
+            parts.append(bond_feat.permute(0, 3, 1, 2).contiguous())  # [B, bond_dim, N, k]
+        feat_n = torch.cat(parts, dim=1)
         feat_c = self.center_ff(feat_c)
         w = self.dist_ff(dist)
 
         feat = w * feat_n + feat_c
         feat = self.update_ff(feat)
+
+        # Zero padded bond slots (atoms with degree < k) so they don't contribute.
+        if neighbor_mask is not None:
+            feat = feat * neighbor_mask.unsqueeze(1).to(feat.dtype)  # [B,1,N,k] over neighbour dim
 
         # Masked average pooling over neighbours
         mask_expanded = mask.unsqueeze(1).unsqueeze(-1).expand_as(feat)
@@ -193,8 +115,8 @@ class MolConv2(nn.Module):
 
     def _generate_feat(
         self, x: torch.Tensor, idx_base: torch.Tensor, mask: torch.Tensor,
-        k: int, remove_xyz: bool
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        k: int, remove_xyz: bool, neighbor_idx: Optional[torch.Tensor] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         batch_size, num_dims, num_points = x.size()
 
         if remove_xyz:
@@ -212,26 +134,22 @@ class MolConv2(nn.Module):
             ).clamp(min=1.0)
             x = torch.cat([x[:, :3, :] - centroid, x[:, 3:, :]], dim=1)
 
-        # kNN graph and distances
+        if neighbor_idx is None:
+            raise ValueError(
+                "neighbor_idx is required: pass the covalent bond graph from "
+                "preprocessing (data_utils.bond_graph_array)."
+            )
+
+        # Pairwise squared distances — computed only to GATHER each supplied neighbour's
+        # distance below; no neighbour selection happens here. Padded slots self-point
+        # (see the forward CONTRACT), so their gathered distance is exactly 0 and stays
+        # inert under any translation. For bonded neighbours, `dist` is the bond length
+        # (squared) and the Gram below the bond angle.
         inner = -2 * torch.matmul(x.transpose(2, 1), x)
-        xx = torch.sum(x**2, dim=1, keepdim=True)
+        xx = torch.sum(x ** 2, dim=1, keepdim=True)
         pairwise_distance = -xx - inner - xx.transpose(2, 1)
 
-        # Exclude zero-padding atoms from REAL atoms' kNN: padding sits at the
-        # coordinate origin and would otherwise pollute real neighbourhoods and
-        # break translation invariance (a real→padding distance depends on the
-        # real atom's absolute position). Padding *query* rows keep selecting
-        # padding neighbours (distance 0), so they stay inert — all-zero and
-        # constant — exactly as before masking. That matters because the Gram
-        # and LayerNorm normalizations run over the atom dimension: a padding
-        # row that varied under translation would leak into every real atom.
-        # Gathering the unmasked distances at the chosen indices keeps -inf out
-        # of the feature pipeline even when a molecule has fewer than k atoms.
-        valid_col = mask.unsqueeze(1)  # [batch_size, 1, num_points] neighbour cols
-        real_row  = mask.unsqueeze(2)  # [batch_size, num_points, 1] real query rows
-        masked_distance = pairwise_distance.masked_fill(~valid_col, float("-inf"))
-        masked_distance = torch.where(real_row, masked_distance, pairwise_distance)
-        _, idx = masked_distance.topk(k=k, dim=2)  # (batch_size, num_points, k)
+        idx = neighbor_idx
         dist = -torch.gather(pairwise_distance, 2, idx)
 
         idx = idx + idx_base
@@ -279,38 +197,27 @@ class MolConv2(nn.Module):
                 graph_feat[:, :, :, 3:].permute(0, 3, 1, 2).contiguous(),
                 chi,
             )
-        else:
-            # Subsequent layers: input has no xyz.  Features are already
-            # invariant (produced by a prior MolConv2 with remove_xyz=True),
-            # so feature-space dot products are rotation-invariant by construction.
-            gm_matrix = torch.matmul(graph_feat, graph_feat.permute(0, 1, 3, 2))
-            gm_matrix = F.normalize(gm_matrix, dim=1)
-            sub_feat = gm_matrix[:, :, :, 0].unsqueeze(3)
-            sub_gm_matrix = torch.matmul(sub_feat, sub_feat.permute(0, 1, 3, 2))
-            sub_gm_matrix = F.normalize(sub_gm_matrix, dim=1)
 
-            return (
-                dist.unsqueeze(3).permute(0, 3, 1, 2).contiguous(),
-                sub_gm_matrix.permute(0, 3, 1, 2).contiguous(),
-                x.permute(0, 3, 1, 2).contiguous(),
-                graph_feat.permute(0, 3, 1, 2).contiguous(),
-                None,
-            )
+        # Subsequent layers: input has no xyz.  Features are already
+        # invariant (produced by a prior MolConv with remove_xyz=True),
+        # so feature-space dot products are rotation-invariant by construction.
+        gm_matrix = torch.matmul(graph_feat, graph_feat.permute(0, 1, 3, 2))
+        gm_matrix = F.normalize(gm_matrix, dim=1)
+        sub_feat = gm_matrix[:, :, :, 0].unsqueeze(3)
+        sub_gm_matrix = torch.matmul(sub_feat, sub_feat.permute(0, 1, 3, 2))
+        sub_gm_matrix = F.normalize(sub_gm_matrix, dim=1)
 
-    def __repr__(self):
         return (
-            self.__class__.__name__
-            + " k = "
-            + str(self.k)
-            + " ("
-            + str(self.in_dim)
-            + " -> "
-            + str(self.out_dim)
-            + ")"
+            dist.unsqueeze(3).permute(0, 3, 1, 2).contiguous(),
+            sub_gm_matrix.permute(0, 3, 1, 2).contiguous(),
+            x.permute(0, 3, 1, 2).contiguous(),
+            graph_feat.permute(0, 3, 1, 2).contiguous(),
+            None,
         )
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__} k = {self.k} ({self.in_dim} -> {self.out_dim})"
 
-# Soft link: the bare name `MolConv` points to the current default encoder (v2).
-# Existing code / imports that reference `MolConv` transparently get MolConv2.
-# The legacy absolute-Gram encoder is available explicitly as `MolConv1`.
-MolConv = MolConv2
+
+# Deprecated alias.
+MolConv2 = MolConv

@@ -1,4 +1,4 @@
 ID,SMILES,Precursor_Type,Collision_Energy
-demo_0,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,40 V
-demo_1,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,20 V
-demo_2,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,10 V
+demo_0,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,80 V
+demo_1,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,60 V
+demo_2,C/C(=C\CNc1nc[nH]c2ncnc1-2)CO,[M+H]+,40 V
