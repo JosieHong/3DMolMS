@@ -6,7 +6,7 @@ The high-level entry point
 
 .. autoclass:: molnetpack.MolNet
    :members: load_data, load_dataframe, load_smiles, get_data,
-             pred_msms, pred_rt, pred_ccs, save_features,
+             pred_msms, pred_rt, pred_ccs, pred_all, save_features,
              train, evaluate, load_checkpoint, generate_spectra_from_df
 
 .. autofunction:: molnetpack.plot_msms

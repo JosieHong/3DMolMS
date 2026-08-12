@@ -571,6 +571,27 @@ class MolNet:
             results.save_csv(self.rt_res_df, path_to_results)
         return self.rt_res_df
 
+    def pred_all(self, path_to_results=None, instrument="qtof"):
+        """Predict MS/MS spectrum, RT, and CCS for the loaded molecules in one call.
+
+        :param path_to_results: Optional path to save results. ``.csv`` gives one row per
+            molecule with the spectrum plus ``Pred RT`` / ``Pred CCS`` columns; ``.mgf``
+            embeds them per ion as ``RTINSECONDS`` and ``CCS``, so the file works directly
+            as an RT/CCS-aware spectral library.
+        :type path_to_results: str, optional
+        :param instrument: ``'qtof'`` or ``'orbitrap'`` (MS/MS model).
+        :type instrument: str
+        :return: The ``pred_msms`` DataFrame with ``Pred RT`` and ``Pred CCS`` appended.
+        :rtype: pandas.DataFrame
+        """
+        msms_df = self.pred_msms(instrument=instrument)
+        rt_df = self.pred_rt()[["ID", "Pred RT"]]
+        ccs_df = self.pred_ccs()[["ID", "Pred CCS"]]
+        df = msms_df.merge(rt_df, on="ID", how="left").merge(ccs_df, on="ID", how="left")
+        if path_to_results:
+            results.save_msms_results(df, path_to_results, self.version, instrument)
+        return df
+
     # ------------------------------------------------------------------
     # Training
     # ------------------------------------------------------------------

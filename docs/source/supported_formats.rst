@@ -64,6 +64,11 @@ A header row followed by one molecule per line. Column names are **case-sensitiv
 Omit the columns a task does not use — ``ID,SMILES`` alone is enough for RT or
 ``save_features``. See ``examples/demo_input.csv``.
 
+The ``Collision_Energy`` column accepts free-text values in either unit — absolute
+(``20 V``) or normalized (``NCE=35%``) — per row. Alternatively, give plain numbers and
+add an optional ``Collision_Energy_Unit`` column (``eV`` or ``NCE``) stating how to read
+them; rows with an unrecognised unit are skipped.
+
 MGF
 ~~~
 
@@ -135,7 +140,15 @@ MS/MS — MGF
 
 ``pred_msms`` writes one ``BEGIN IONS`` block per molecule with the predicted
 m/z–intensity peak list, alongside ``TITLE``, ``SMILES``, ``PRECURSOR_TYPE`` and
-``COLLISION_ENERGY``:
+``COLLISION_ENERGY``. Predicted spectra never contain peaks above the precursor m/z —
+in particular, no isotope envelope. The released models may predict a surviving
+precursor ion at the precursor m/z itself (prominent at low collision energy); models
+trained with the package's own preprocessing (``generate_ms``) have the precursor and
+isotope peaks removed from their targets and do not predict them.
+
+``MolNet.pred_all`` additionally embeds the RT and CCS predictions in each ion block as
+``RTINSECONDS`` and ``CCS`` — the fields RT/CCS-aware library tools read — and, for CSV
+output, as ``Pred RT`` / ``Pred CCS`` columns:
 
 .. code-block:: text
 

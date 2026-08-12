@@ -48,6 +48,36 @@ def _padded_mol_array(xyz_arr, atom_type, encoder):
     )
 
 
+_ABSOLUTE_UNITS = {"ev", "v", "ce", "absolute"}
+_NORMALIZED_UNITS = {"nce", "%", "nce (%)", "nce%", "normalized"}
+
+
+def _resolve_ce_string(row):
+    """Collision-energy cell plus the optional ``Collision_Energy_Unit`` column, as the
+    free-text form ``parse_collision_energy`` understands.
+
+    Without a unit column the cell is passed through as-is (``"20 V"``, ``"NCE=35%"``, ...).
+    With one, the cell holds a plain number and the unit says how to read it. Returns None
+    for an unrecognised unit, so the caller skips the row instead of guessing.
+    """
+    cell = str(row["Collision_Energy"]).strip()
+    unit = ""
+    if "Collision_Energy_Unit" in row and not pd.isna(row["Collision_Energy_Unit"]):
+        unit = str(row["Collision_Energy_Unit"]).strip().lower()
+    if not unit:
+        return cell
+    try:
+        value = float(cell)
+    except ValueError:
+        # the cell already carries its own unit ("20 V"); the unit column is redundant here
+        return cell
+    if unit in _ABSOLUTE_UNITS:
+        return f"{value} eV"
+    if unit in _NORMALIZED_UNITS:
+        return f"NCE={value}%"
+    return None
+
+
 def _require_generated_conformation(encoder):
     if encoder["conf_type"] == "origin":
         raise ValueError(
@@ -125,6 +155,10 @@ def molecules_to_records(csv_path, encoder):
 
     ``csv_path`` may be a path to a CSV file or an already-loaded pandas DataFrame.
 
+    The ``Collision_Energy`` column accepts free-text values in either unit (``"20 V"`` or
+    ``"NCE=35%"``). Alternatively, give plain numbers and add an optional
+    ``Collision_Energy_Unit`` column (``eV`` or ``NCE``) that says how to read them, per row.
+
     (Formerly ``csv2pkl_wfilter``, which remains available as an alias.)
     """
     _require_generated_conformation(encoder)
@@ -164,8 +198,13 @@ def molecules_to_records(csv_path, encoder):
                 row["Precursor_Type"],
                 mass=Descriptors.MolWt(Chem.MolFromSmiles(row["SMILES"])),
             )
+            ce_str = _resolve_ce_string(row)
+            if ce_str is None:
+                logger.debug("Unknown Collision_Energy_Unit: %r (%s)",
+                             row["Collision_Energy_Unit"], row["ID"])
+                continue
             ce, nce = parse_collision_energy(
-                ce_str=row["Collision_Energy"],
+                ce_str=ce_str,
                 precursor_mz=precursor_mz,
                 charge=int(encoder["type2charge"][row["Precursor_Type"]]),
             )

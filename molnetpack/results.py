@@ -51,20 +51,30 @@ def assemble_msms_results(records, id_list, pred_dicts, data_config):
 
 
 def spectra_from_dataframe(df, version, instrument=None):
-    """Convert a ``pred_msms`` result DataFrame into pyteomics-style spectrum dicts."""
+    """Convert a ``pred_msms`` result DataFrame into pyteomics-style spectrum dicts.
+
+    When the DataFrame carries ``Pred RT`` / ``Pred CCS`` columns (see
+    :meth:`molnetpack.MolNet.pred_all`), they are emitted as the ``RTINSECONDS`` and
+    ``CCS`` ion parameters — the fields RT/CCS-aware library tools read.
+    """
     spectra = []
     for idx, row in df.iterrows():
+        params = {
+            "title":            row["ID"],
+            "mslevel":          "2",
+            "organism":         f"3DMolMS_{version}",
+            "spectrumid":       f"pred_{idx}",
+            "smiles":           row["SMILES"],
+            "collision_energy": row["Collision Energy"],
+            "precursor_type":   row["Precursor Type"],
+            "instrument_type":  instrument,
+        }
+        if "Pred RT" in row and pd.notna(row["Pred RT"]):
+            params["rtinseconds"] = round(float(row["Pred RT"]), 2)
+        if "Pred CCS" in row and pd.notna(row["Pred CCS"]):
+            params["ccs"] = round(float(row["Pred CCS"]), 1)
         spectra.append({
-            "params": {
-                "title":            row["ID"],
-                "mslevel":          "2",
-                "organism":         f"3DMolMS_{version}",
-                "spectrumid":       f"pred_{idx}",
-                "smiles":           row["SMILES"],
-                "collision_energy": row["Collision Energy"],
-                "precursor_type":   row["Precursor Type"],
-                "instrument_type":  instrument,
-            },
+            "params": params,
             "m/z array":       np.array([float(v) for v in row["Pred M/Z"].split(",") if v]),
             "intensity array": np.array(
                 [float(v) * 1000 for v in row["Pred Intensity"].split(",") if v]),

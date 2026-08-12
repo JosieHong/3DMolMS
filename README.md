@@ -4,7 +4,7 @@
 
 **3D** **Mol**ecular Network for **M**ass **S**pectra Prediction (3DMolMS) is a deep neural network that predicts the MS/MS spectra of compounds from their 3D conformations. The molecular representation it learns transfers to related tasks such as retention time (RT) and collision cross section (CCS) prediction.
 
-[Paper](https://academic.oup.com/bioinformatics/article/39/6/btad354/7186501) | [Document](https://3dmolms.readthedocs.io/en/latest/) | [Workflow on Koina](https://koina.wilhelmlab.org/docs#post-/3dmolms_qtof/infer) | [PyPI package](https://pypi.org/project/molnetpack/)
+[Paper](https://academic.oup.com/bioinformatics/article/39/6/btad354/7186501) | [Document](https://3dmolms.readthedocs.io/en/latest/) | [Demo on Hugging Face](https://huggingface.co/spaces/J0siee/3DMolMS) | [Workflow on Koina](https://koina.wilhelmlab.org/docs#post-/3dmolms_qtof/infer) | [PyPI package](https://pypi.org/project/molnetpack/)
 
 ## Latest release
 
@@ -34,7 +34,7 @@ cd 3DMolMS
 pip install .
 ```
 
-For inference without installing anything, use the [Koina web service](https://koina.wilhelmlab.org/docs#post-/3dmolms_qtof/infer).
+For inference without installing anything, try the interactive [Hugging Face Space](https://huggingface.co/spaces/J0siee/3DMolMS), or the [Koina web service](https://koina.wilhelmlab.org/docs#post-/3dmolms_qtof/infer) for API access.
 
 ## Usage
 
@@ -115,8 +115,6 @@ Sample input files are in [examples/](https://github.com/JosieHong/3DMolMS/tree/
 See the [full documentation](https://3dmolms.readthedocs.io/en/latest/) for dataset preparation, preprocessing, and advanced usage, and the [source-code docs](https://3dmolms.readthedocs.io/en/latest/sourcecode.html) for script-based workflows.
 
 ## Citation
-
-If you use 3DMolMS in your research, please cite:
 
 1. Hong, Y., Li, S., Welch, C.J., Tichy, S., Ye, Y. and Tang, H., 2023. 3DMolMS: prediction of tandem mass spectra from 3D molecular conformations. *Bioinformatics*, 39(6), p.btad354.
 2. Hong, Y., Welch, C.J., Piras, P. and Tang, H., 2024. Enhanced structure-based prediction of chiral stationary phases for chromatographic enantioseparation from 3D molecular conformations. *Analytical Chemistry*, 96(6), pp.2351-2359.
